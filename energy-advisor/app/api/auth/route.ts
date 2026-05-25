@@ -20,37 +20,8 @@ function buildPage(redirect: string, error = false) {
       align-items: center;
       justify-content: center;
       font-family: 'Inter', system-ui, sans-serif;
-      background-color: #1c2128;
-      background-image:
-        radial-gradient(ellipse 120% 80% at 50% 0%, rgba(120,140,160,0.18) 0%, transparent 60%),
-        radial-gradient(ellipse 80% 60% at 20% 100%, rgba(60,80,100,0.2) 0%, transparent 50%),
-        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(80,100,120,0.15) 0%, transparent 50%);
+      background-color: #ffffff;
       overflow: hidden;
-    }
-
-    /* Fog layers */
-    .fog {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background:
-        radial-gradient(ellipse 200% 30% at 50% 100%, rgba(200,210,220,0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 150% 20% at 30% 85%, rgba(180,200,215,0.05) 0%, transparent 50%);
-    }
-
-    /* Subtle wave texture */
-    .texture {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0.03;
-      background-image: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(255,255,255,1) 2px,
-        rgba(255,255,255,1) 3px
-      );
     }
 
     .container {
@@ -195,15 +166,13 @@ function buildPage(redirect: string, error = false) {
 
     .tagline {
       font-size: 11px;
-      color: rgba(200,210,220,0.35);
+      color: rgba(100,80,60,0.4);
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
   </style>
 </head>
 <body>
-  <div class="fog"></div>
-  <div class="texture"></div>
   <div class="container">
     <div class="sign">
       <span class="sign-icon">🚫</span>
