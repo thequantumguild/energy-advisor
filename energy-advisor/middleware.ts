@@ -9,7 +9,7 @@ export function middleware(request: NextRequest) {
   if (auth === PASSWORD) return NextResponse.next();
 
   const { pathname } = request.nextUrl;
-  if (pathname === '/api/auth') return NextResponse.next();
+  if (pathname.startsWith('/api/auth')) return NextResponse.next();
 
   const url = request.nextUrl.clone();
   url.pathname = '/api/auth';
