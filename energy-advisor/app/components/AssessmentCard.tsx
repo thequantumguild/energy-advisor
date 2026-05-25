@@ -291,75 +291,28 @@ function IncentivesSection({
     <Card>
       <SectionLabel>Federal & State Incentives</SectionLabel>
 
-      {/* Federal ITC — honest breakdown */}
-      <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
-        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
-          Federal Tax Credits — Verify Current Status
+      {/* Incentives placeholder */}
+      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+        <p className="text-sm font-semibold text-slate-700 mb-2">Verified incentive data coming soon</p>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          We are integrating DSIRE to show you verified federal, state, and local incentives specific to your address. Until that data is live, do not rely on any number a salesperson quotes you for tax credits or rebates — verify directly at the sources below.
         </p>
-
-        <div className="space-y-2 text-xs text-blue-700 leading-relaxed">
-          <p>
-            Federal residential solar incentives have changed. <span className="font-semibold">Do not rely on any number this tool or a salesperson quotes you for federal credits — verify directly with the IRS or a tax professional before signing anything.</span>
-          </p>
-
-          <p>
-            <span className="font-semibold">If a federal residential credit is available:</span> It would apply only to homeowners who purchase their system outright or with a solar loan. It requires federal tax liability — it is not a refund. Unused credit may carry forward.
-          </p>
-
-          <div className="p-3 bg-white/60 rounded-lg border border-blue-200">
-            <p className="font-semibold text-blue-800 mb-1">Domestic Content Bonus</p>
-            <p>Separate from the residential credit — if your installer uses US-manufactured panels and inverters, additional incentives may apply under IRA Section 45X. Ask any installer: <span className="italic">"Do your components qualify for domestic content?"</span></p>
-          </div>
+        <div className="mt-3 flex flex-wrap gap-4">
+          <SourceLink href="https://www.dsireusa.org/" label="DSIRE — state & local incentives" />
+          <SourceLink href="https://www.irs.gov/credits-deductions/residential-clean-energy-credit" label="IRS.gov — federal credits" />
         </div>
-
-        <div className="mt-3 pt-3 border-t border-blue-200">
-          <SourceLink href="https://www.irs.gov/credits-deductions/residential-clean-energy-credit" label="IRS.gov — current federal credit status" />
-        </div>
-      </div>
-
-      {/* Lease/PPA warning */}
-      <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 mb-6">
-        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
-          Lease & PPA customers: you do not receive this credit
-        </p>
-        <p className="text-xs text-amber-800 leading-relaxed">
-          In a lease or Power Purchase Agreement (PPA), the company that owns the panels claims the federal tax credit — not you. They may use it to offer you a lower monthly rate, but the benefit goes to them.
-          Always ask: <span className="italic">"Who claims the federal tax credit in this deal?"</span>
-        </p>
-        <p className="text-xs text-amber-700 leading-relaxed mt-2">
-          <span className="font-semibold">New in 2025:</span> Some solar loan products are now structured to transfer ITC benefits to the homeowner even in lease-like arrangements. If you're being shown a hybrid product, ask specifically whether the credit passes through to you.
-        </p>
       </div>
 
       {/* Net metering */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-        <div>
-          <p className="text-xs text-slate-500 mb-2">Net Metering</p>
-          <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${nmColor}`}>
-            {nmLabel}
-          </span>
-          <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-            {incentives.netMeteringDetail}
-          </p>
-        </div>
+      <div className="mt-6">
+        <p className="text-xs text-slate-500 mb-2">Net Metering</p>
+        <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${nmColor}`}>
+          {nmLabel}
+        </span>
+        <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+          {incentives.netMeteringDetail}
+        </p>
       </div>
-
-      {/* State incentives */}
-      {incentives.stateIncentives.length > 0 && (
-        <div className="pt-6 border-t border-slate-100">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              State & Local Incentives
-            </p>
-            <SourceLink href="https://www.dsireusa.org/" label="DSIRE database" />
-          </div>
-          <div className="space-y-3">
-            {incentives.stateIncentives.map((inc, i) => (
-              <IncentiveRow key={i} incentive={inc} />
-            ))}
-          </div>
-        </div>
-      )}
     </Card>
   );
 }
@@ -411,9 +364,6 @@ function PaybackSection({
           {payback.lowYears}–{payback.highYears}
           <span className="text-xl font-medium text-slate-400 ml-1">years</span>
         </p>
-        <p className="text-sm text-slate-500 mb-1">
-          Verify any federal credits with IRS.gov before using in your payback math.
-        </p>
       </div>
       <div className="space-y-2 text-sm text-slate-600 leading-relaxed">
         <p>
@@ -461,7 +411,7 @@ function FlagsSection({
     },
     {
       title: 'Payback under 5 years is almost always misleading',
-      body: `After the 30% ITC, your net system cost is roughly ${formatCurrency(cost.lowEstimate * 0.7)}–${formatCurrency(cost.highEstimate * 0.7)}. Legitimate payback periods for residential solar run 7–12 years. A sub-5-year claim usually inflates future utility rates, overstates production, or omits financing costs. Ask to see the full assumption sheet.`,
+      body: `Legitimate payback periods for residential solar run 7–12 years. A sub-5-year claim usually inflates future utility rates, overstates production, omits financing costs, or assumes tax credits that may not apply to you. Ask to see the full assumption sheet.`,
     },
     ...(incentives.netMeteringStatus !== 'full'
       ? [
