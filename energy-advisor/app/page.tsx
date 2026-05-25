@@ -29,13 +29,13 @@ export default function Home() {
     return data as Assessment;
   }
 
-  async function handleAddressSubmit(addr: string) {
+  async function handleAddressSubmit(addr: string, monthlyBill?: number) {
     setAddress(addr);
     setPhase('loading');
     setAssessment(null);
     setError(null);
     try {
-      const result = await runAssessment({ address: addr });
+      const result = await runAssessment({ address: addr, monthlyBill });
       setAssessment(result);
       setPhase('result');
     } catch (err) {

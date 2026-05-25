@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import type { Assessment, StateIncentive } from '@/lib/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
@@ -27,9 +30,11 @@ export default function AssessmentCard({ assessment }: Props) {
         </div>
       ))}
 
-      {/* 2-column grid on desktop */}
+      {/* Roof — full width with satellite image */}
+      <RoofSection roof={roof} roofImageUrl={assessment.roofImageUrl} />
+
+      {/* 2-column grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <RoofSection roof={roof} />
         <ProductionSection production={production} />
         <SavingsSection savings={savings} />
         <CostSection cost={cost} />
@@ -81,6 +86,19 @@ function Stat({
   );
 }
 
+function SourceLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-xs text-slate-400 hover:text-blue-600 hover:underline transition-colors"
+    >
+      Source: {label} →
+    </a>
+  );
+}
+
 function DataQualityBadge({ quality }: { quality: 'high' | 'medium' | 'low' }) {
   const map = {
     high:   { label: 'Satellite data', color: 'bg-green-100 text-green-700' },
@@ -105,7 +123,9 @@ function WarningIcon() {
 
 // ── Section 1: Your Roof ─────────────────────────────────────────────────────
 
-function RoofSection({ roof }: { roof: Assessment['roof'] }) {
+function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofImageUrl?: string }) {
+  const [imgFailed, setImgFailed] = useState(false);
+
   const shadingColor = {
     minimal:     'bg-green-100 text-green-700',
     moderate:    'bg-amber-100 text-amber-700',
@@ -115,7 +135,22 @@ function RoofSection({ roof }: { roof: Assessment['roof'] }) {
   return (
     <Card>
       <SectionLabel>Your Roof</SectionLabel>
-      <div className="grid grid-cols-2 gap-4">
+
+      {roofImageUrl && !imgFailed && (
+        <div className="mb-5 rounded-xl overflow-hidden border border-slate-100">
+          <img
+            src={roofImageUrl}
+            alt="Satellite view of property"
+            className="w-full h-56 object-cover"
+            onError={() => setImgFailed(true)}
+          />
+          <p className="text-xs text-slate-400 text-center py-1.5 bg-slate-50 border-t border-slate-100">
+            Satellite imagery — Google Maps
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Stat label="Usable solar area" value={`${formatNumber(roof.usableAreaSqFt)} sq ft`} />
         <Stat label="Orientation" value={roof.azimuthLabel} />
         <Stat label="Estimated panels" value={`${roof.estimatedPanelCount}`} sub={`~${Math.round(roof.estimatedPanelCount * 0.4 * 10) / 10} kW system`} />
@@ -126,6 +161,10 @@ function RoofSection({ roof }: { roof: Assessment['roof'] }) {
           </span>
           <p className="text-xs text-slate-400 mt-1.5">{roof.pitchDegrees}° roof pitch</p>
         </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-slate-100">
+        <SourceLink href="https://developers.google.com/maps/documentation/solar" label="Google Solar API" />
       </div>
     </Card>
   );
@@ -144,18 +183,19 @@ function ProductionSection({ production }: { production: Assessment['production'
 
   return (
     <Card>
-      <SectionLabel>Your Production</SectionLabel>
+      <SectionLabel>Estimated Production</SectionLabel>
       <p className="text-4xl font-bold text-slate-900 mb-1">
         {formatNumber(production.annualKwh)}
         <span className="text-xl font-medium text-slate-400 ml-1">kWh / yr</span>
       </p>
       <p className="text-sm text-slate-500 mb-4">{homesLabel}</p>
-      <div className="pt-4 border-t border-slate-100">
+      <div className="pt-4 border-t border-slate-100 space-y-3">
         <Stat
           label="System size"
           value={`${production.systemCapacityKw} kW`}
           sub="DC nameplate capacity"
         />
+        <SourceLink href="https://pvwatts.nrel.gov/" label="NREL PVWatts V8" />
       </div>
     </Card>
   );
@@ -166,13 +206,13 @@ function ProductionSection({ production }: { production: Assessment['production'
 function SavingsSection({ savings }: { savings: Assessment['savings'] }) {
   return (
     <Card>
-      <SectionLabel>Your Savings</SectionLabel>
+      <SectionLabel>Estimated Savings</SectionLabel>
       <p className="text-4xl font-bold text-green-600 mb-1">
         {formatCurrency(savings.annualSavings)}
         <span className="text-xl font-medium text-green-400 ml-1">/ yr</span>
       </p>
       <p className="text-sm text-slate-700 mb-4">
-        Estimated <span className="font-semibold">{savings.offsetPercent}%</span> of your electricity bill offset
+        Estimated <span className="font-semibold">{savings.offsetPercent}%</span> of your electricity offset
       </p>
       <div className="pt-4 border-t border-slate-100 space-y-2">
         <div className="flex justify-between text-xs">
@@ -189,20 +229,21 @@ function SavingsSection({ savings }: { savings: Assessment['savings'] }) {
         </div>
         {savings.isStateAverage && (
           <p className="text-xs text-amber-600 pt-1">
-            Using {savings.stateAbbr} state average consumption — add your bill below for a sharper number.
+            Using {savings.stateAbbr} state average — enter your monthly bill above for a more accurate number.
           </p>
         )}
+        <SourceLink href="https://www.eia.gov/electricity/retail-sales/" label="EIA Retail Electricity Sales" />
       </div>
     </Card>
   );
 }
 
-// ── Section 4: Honest Cost Range ─────────────────────────────────────────────
+// ── Section 4: Cost Range ────────────────────────────────────────────────────
 
 function CostSection({ cost }: { cost: Assessment['cost'] }) {
   return (
     <Card>
-      <SectionLabel>Honest Cost Range</SectionLabel>
+      <SectionLabel>Cost Range</SectionLabel>
       <p className="text-3xl font-bold text-slate-900 mb-1">
         {formatCurrency(cost.lowEstimate)}
         <span className="text-slate-400 font-medium mx-1">–</span>
@@ -211,16 +252,17 @@ function CostSection({ cost }: { cost: Assessment['cost'] }) {
       <p className="text-xs text-slate-500 mb-4">
         ${cost.costPerWattLow.toFixed(2)}–${cost.costPerWattHigh.toFixed(2)} per watt · {cost.systemCapacityKw} kW system
       </p>
-      <div className="pt-4 border-t border-slate-100">
+      <div className="pt-4 border-t border-slate-100 space-y-2">
         <p className="text-xs text-slate-500 leading-relaxed">
-          Benchmarked to LBNL 2024 national residential data. This is what honest installers are charging right now — before any incentives.
+          Based on LBNL 2024 national residential benchmark data. Before any incentives.
         </p>
+        <SourceLink href="https://emp.lbl.gov/tracking-the-sun" label="LBNL Tracking the Sun 2024" />
       </div>
     </Card>
   );
 }
 
-// ── Section 5: Your Incentives ───────────────────────────────────────────────
+// ── Section 5: Incentives ────────────────────────────────────────────────────
 
 function IncentivesSection({
   incentives,
@@ -242,26 +284,60 @@ function IncentivesSection({
   }[incentives.netMeteringStatus];
 
   const costMid = (cost.lowEstimate + cost.highEstimate) / 2;
+  const itcDollars = costMid * 0.30;
+  const domesticContentDollars = costMid * 0.10;
 
   return (
     <Card>
-      <SectionLabel>Your Incentives</SectionLabel>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {/* Federal ITC */}
-        <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">
-            Federal Investment Tax Credit
-          </p>
+      <SectionLabel>Federal & State Incentives</SectionLabel>
+
+      {/* Federal ITC — honest breakdown */}
+      <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
+        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
+          Federal Tax Credit — Section 25D
+        </p>
+
+        <div className="mb-3">
           <p className="text-3xl font-bold text-blue-700 mb-1">
-            {formatCurrency(incentives.federalITCDollars)}
+            {formatCurrency(itcDollars)}
           </p>
           <p className="text-xs text-blue-600">
-            {incentives.federalITCPercent}% of your system cost ({formatCurrency(costMid)} midpoint),
-            applied against federal income tax owed. Available through 2032.
+            30% of ~{formatCurrency(costMid)} estimated system cost · Available through 2032
           </p>
         </div>
 
-        {/* Net metering */}
+        <div className="space-y-2 text-xs text-blue-700 leading-relaxed">
+          <p>
+            <span className="font-semibold">Who qualifies:</span> Homeowners who purchase their system outright or with a solar loan. This reduces what you owe the IRS — it requires federal tax liability and is not a refund. Unused credit carries forward one year.
+          </p>
+
+          <div className="p-3 bg-white/60 rounded-lg border border-blue-200">
+            <p className="font-semibold text-blue-800 mb-1">Domestic Content Bonus — additional 10%</p>
+            <p>If your installer uses US-manufactured panels and inverters, you may qualify for an additional {formatCurrency(domesticContentDollars)}. Ask any installer directly: <span className="italic">"Do your components qualify for domestic content under IRA Section 45X?"</span></p>
+          </div>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-blue-200">
+          <SourceLink href="https://www.irs.gov/credits-deductions/residential-clean-energy-credit" label="IRS Residential Clean Energy Credit (Form 5695)" />
+        </div>
+      </div>
+
+      {/* Lease/PPA warning */}
+      <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 mb-6">
+        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+          Lease & PPA customers: you do not receive this credit
+        </p>
+        <p className="text-xs text-amber-800 leading-relaxed">
+          In a lease or Power Purchase Agreement (PPA), the company that owns the panels claims the federal tax credit — not you. They may use it to offer you a lower monthly rate, but the benefit goes to them.
+          Always ask: <span className="italic">"Who claims the federal tax credit in this deal?"</span>
+        </p>
+        <p className="text-xs text-amber-700 leading-relaxed mt-2">
+          <span className="font-semibold">New in 2025:</span> Some solar loan products are now structured to transfer ITC benefits to the homeowner even in lease-like arrangements. If you're being shown a hybrid product, ask specifically whether the credit passes through to you.
+        </p>
+      </div>
+
+      {/* Net metering */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
         <div>
           <p className="text-xs text-slate-500 mb-2">Net Metering</p>
           <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${nmColor}`}>
@@ -275,10 +351,13 @@ function IncentivesSection({
 
       {/* State incentives */}
       {incentives.stateIncentives.length > 0 && (
-        <div className="mt-6 pt-6 border-t border-slate-100">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-            State & Local Incentives
-          </p>
+        <div className="pt-6 border-t border-slate-100">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              State & Local Incentives
+            </p>
+            <SourceLink href="https://www.dsireusa.org/" label="DSIRE database" />
+          </div>
           <div className="space-y-3">
             {incentives.stateIncentives.map((inc, i) => (
               <IncentiveRow key={i} incentive={inc} />
@@ -312,7 +391,7 @@ function IncentiveRow({ incentive }: { incentive: StateIncentive }) {
             rel="noopener noreferrer"
             className="text-xs text-blue-600 hover:underline mt-1 inline-block"
           >
-            Learn more →
+            Verify →
           </a>
         )}
       </div>
@@ -320,7 +399,7 @@ function IncentiveRow({ incentive }: { incentive: StateIncentive }) {
   );
 }
 
-// ── Section 6: Real Payback Range ────────────────────────────────────────────
+// ── Section 6: Payback Range ─────────────────────────────────────────────────
 
 function PaybackSection({
   payback,
@@ -331,28 +410,27 @@ function PaybackSection({
 }) {
   return (
     <Card>
-      <SectionLabel>Real Payback Range</SectionLabel>
+      <SectionLabel>Payback Range</SectionLabel>
       <div className="flex items-end gap-4 mb-4">
         <p className="text-4xl font-bold text-slate-900">
           {payback.lowYears}–{payback.highYears}
           <span className="text-xl font-medium text-slate-400 ml-1">years</span>
         </p>
         <p className="text-sm text-slate-500 mb-1">
-          Net cost after ITC: {formatCurrency(payback.netCostAfterITC)}
+          Net cost after ITC (if you own): {formatCurrency(payback.netCostAfterITC)}
         </p>
       </div>
       <div className="space-y-2 text-sm text-slate-600 leading-relaxed">
         <p>
-          The lower end of that range assumes your utility rates rise modestly (they typically do) and
-          you self-consume a high share of what you produce.
+          The lower end assumes modest utility rate increases over time and high self-consumption of what you produce.
+          The upper end uses today's rate with no escalation.
         </p>
         <p>
-          The upper end uses today's rate with no escalation. Where you land depends on your actual
-          usage pattern, your utility's future rate decisions, and whether you have battery storage.
+          Where you land depends on your actual usage pattern, your utility's rate decisions, and whether you carry battery storage.
         </p>
         {savings.isStateAverage && (
           <p className="text-amber-600">
-            Add your monthly bill below — it'll tighten this range considerably.
+            Enter your monthly bill above to tighten this range considerably.
           </p>
         )}
       </div>
@@ -372,19 +450,19 @@ function FlagsSection({
   const flags = [
     {
       title: 'Fair price is $2.70–$3.50 per watt',
-      body: `A ${cost.systemCapacityKw} kW system should cost roughly ${formatCurrency(cost.lowEstimate)}–${formatCurrency(cost.highEstimate)} before incentives. If a quote is more than 20% above that range, ask the rep to explain the markup in detail — premium equipment rarely justifies it alone.`,
+      body: `A ${cost.systemCapacityKw} kW system should cost roughly ${formatCurrency(cost.lowEstimate)}–${formatCurrency(cost.highEstimate)} before incentives. If a quote is more than 20% above that range, ask the rep to explain the markup in detail.`,
     },
     {
-      title: 'Battery storage doesn\'t "eliminate your bill"',
-      body: "Some installers sell solar + battery as complete bill elimination. That only works if your battery is large enough to cover overnight usage and your utility has a time-of-use tariff that makes it worth it. Most homeowners see 20–40% of savings tied to storage — not 100%. Model the numbers yourself before signing.",
+      title: 'Battery storage doesn\'t eliminate your bill',
+      body: 'Some installers sell solar + battery as complete bill elimination. That only works if your battery is large enough to cover overnight usage and your utility has a time-of-use tariff that makes it worth it. Model the numbers before signing.',
     },
     {
       title: 'A PPA means you don\'t own the panels',
-      body: "A Power Purchase Agreement lets a company put panels on your roof — but they own them. You buy the electricity they produce at a set rate. You can't claim the federal tax credit (they do), and selling your home with a PPA in place can complicate things. Loans and cash purchases keep the ITC and equity in your hands.",
+      body: 'A Power Purchase Agreement lets a company put panels on your roof — but they own them. You buy the electricity they produce at a set rate. You can\'t claim the federal tax credit (they do), and selling your home with a PPA in place can complicate things.',
     },
     {
       title: 'One company, one quote is a pressure play',
-      body: "Any installer who won't give you a week to get competing quotes isn't confident in their pricing. Three quotes is the standard — reputable contractors expect it and tell you to do it. A $25,000 purchase deserves at least a weekend of comparison shopping.",
+      body: 'Any installer who won\'t give you a week to get competing quotes isn\'t confident in their pricing. Three quotes is the standard. A $25,000 purchase deserves at least a weekend of comparison shopping.',
     },
     {
       title: 'Payback under 5 years is almost always misleading',
@@ -394,7 +472,7 @@ function FlagsSection({
       ? [
           {
             title: 'Your state has limited net metering — self-consumption matters more',
-            body: `${incentives.netMeteringDetail} This means the value of solar here is highest when you use power as it's generated. If you're away all day, battery storage becomes a more important part of the economics.`,
+            body: `${incentives.netMeteringDetail} This means the value of solar here is highest when you use power as it's generated.`,
           },
         ]
       : []),

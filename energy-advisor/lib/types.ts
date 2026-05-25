@@ -77,4 +77,5 @@ export interface Assessment {
   generatedAt: string;
   dataQuality: 'high' | 'medium' | 'low';
   warnings?: string[];
+  roofImageUrl?: string;
 }

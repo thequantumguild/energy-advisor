@@ -281,6 +281,7 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString(),
       dataQuality,
       warnings: warnings.length > 0 ? warnings : undefined,
+      roofImageUrl: `/api/satellite?lat=${lat}&lng=${lng}`,
     };
 
     return NextResponse.json(assessment);
