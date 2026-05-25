@@ -163,11 +163,16 @@ export async function POST(request: NextRequest) {
     return new NextResponse(buildPage(redirect, true), { headers: { 'Content-Type': 'text/html' } });
   }
 
-  const response = NextResponse.redirect(new URL(redirect, request.url));
+  const dest = new URL(redirect, request.url).toString();
+  const response = new NextResponse(
+    `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${dest}" /><script>window.location.replace(${JSON.stringify(dest)})</script></head><body></body></html>`,
+    { headers: { 'Content-Type': 'text/html' } }
+  );
   response.cookies.set('site-auth', PASSWORD, {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
+    path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });
   return response;
