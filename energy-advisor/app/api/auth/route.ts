@@ -10,7 +10,7 @@ function buildPage(redirect: string, error = false) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Private — Energy Advisor</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,165 +20,123 @@ function buildPage(redirect: string, error = false) {
       align-items: center;
       justify-content: center;
       font-family: 'Inter', system-ui, sans-serif;
-      background-color: #ffffff;
-      overflow: hidden;
+      background-color: #0a0a0a;
     }
 
     .container {
-      position: relative;
-      z-index: 10;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 32px;
+      gap: 28px;
       padding: 24px;
+      width: 100%;
     }
 
-    /* The sign */
-    .sign {
-      position: relative;
-      background: #f5f0e8;
-      border: 3px solid #8b7355;
-      border-radius: 4px;
-      padding: 36px 48px 32px;
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 40px 44px 36px;
       max-width: 380px;
       width: 100%;
       text-align: center;
-      box-shadow:
-        0 4px 0 #6b5635,
-        0 8px 32px rgba(0,0,0,0.5),
-        inset 0 1px 0 rgba(255,255,255,0.6),
-        inset 0 -1px 0 rgba(0,0,0,0.1);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
     }
 
-    /* Wood grain effect */
-    .sign::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 2px;
-      background: repeating-linear-gradient(
-        92deg,
-        transparent,
-        transparent 8px,
-        rgba(139,115,85,0.06) 8px,
-        rgba(139,115,85,0.06) 9px
-      );
-      pointer-events: none;
-    }
-
-    /* Nail dots */
-    .sign::after {
-      content: '· ·';
-      position: absolute;
-      top: 10px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 20px;
-      color: #8b7355;
-      letter-spacing: 280px;
-      opacity: 0.5;
-    }
-
-    .sign-icon {
-      font-size: 36px;
-      margin-bottom: 8px;
+    .card-icon {
+      font-size: 40px;
+      margin-bottom: 16px;
       display: block;
+      line-height: 1;
     }
 
-    .sign-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-weight: 700;
-      font-size: 26px;
-      color: #2c1810;
-      letter-spacing: -0.01em;
-      line-height: 1.1;
-      margin-bottom: 4px;
+    .card-title {
+      font-weight: 900;
+      font-size: 28px;
+      color: #0a0a0a;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 6px;
     }
 
-    .sign-sub {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-style: italic;
+    .card-sub {
       font-size: 13px;
-      color: #6b5635;
-      margin-bottom: 24px;
-      letter-spacing: 0.02em;
+      font-weight: 400;
+      color: #888;
+      margin-bottom: 28px;
+      letter-spacing: 0;
     }
 
-    .sign hr {
+    .divider {
       border: none;
-      border-top: 1px solid #c4a882;
-      margin: 0 -8px 24px;
+      border-top: 1px solid #e8e8e8;
+      margin: 0 0 24px;
     }
 
     input[type="password"] {
       width: 100%;
-      padding: 11px 16px;
-      background: rgba(255,255,255,0.7);
-      border: 1.5px solid #c4a882;
-      border-radius: 4px;
+      padding: 12px 16px;
+      background: #f5f5f5;
+      border: 1.5px solid transparent;
+      border-radius: 8px;
       font-size: 15px;
-      color: #2c1810;
+      color: #0a0a0a;
       outline: none;
       font-family: 'Inter', system-ui, sans-serif;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      margin-bottom: 12px;
-      letter-spacing: 0.05em;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 10px;
     }
 
     input[type="password"]::placeholder {
-      color: #b09a7a;
-      letter-spacing: 0;
+      color: #aaa;
       font-style: italic;
     }
 
     input[type="password"]:focus {
-      border-color: #8b7355;
-      box-shadow: 0 0 0 3px rgba(139,115,85,0.12);
-      background: rgba(255,255,255,0.9);
+      border-color: #0a0a0a;
+      background: #fff;
     }
 
     button {
       width: 100%;
-      padding: 11px;
-      background: #2c1810;
-      color: #f5f0e8;
+      padding: 12px;
+      background: #0a0a0a;
+      color: #fff;
       border: none;
-      border-radius: 4px;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       cursor: pointer;
       font-family: 'Inter', system-ui, sans-serif;
-      transition: background 0.2s;
+      transition: background 0.15s;
     }
 
-    button:hover { background: #3d2418; }
+    button:hover { background: #222; }
 
     .error {
       font-size: 12px;
-      color: #8b2020;
+      color: #cc3333;
       margin-top: 10px;
       font-style: italic;
     }
 
     .tagline {
-      font-size: 11px;
-      color: rgba(100,80,60,0.4);
-      letter-spacing: 0.08em;
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 0.12em;
       text-transform: uppercase;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="sign">
-      <span class="sign-icon">🚫</span>
-      <p class="sign-title">No Soliciting</p>
-      <p class="sign-sub">Private access only</p>
-      <hr />
+    <div class="card">
+      <span class="card-icon">🚫</span>
+      <p class="card-title">No Soliciting</p>
+      <p class="card-sub">Leave the pitch at the door.</p>
+      <hr class="divider" />
       <form method="POST" action="/api/auth?redirect=${encodeURIComponent(redirect)}">
         <input type="password" name="password" placeholder="knock knock..." autofocus autocomplete="current-password" />
         <button type="submit">Enter</button>

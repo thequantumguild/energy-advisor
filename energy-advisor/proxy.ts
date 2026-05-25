@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const PASSWORD = process.env.SITE_PASSWORD;
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (!PASSWORD) return NextResponse.next();
 
   const auth = request.cookies.get('site-auth')?.value;
