@@ -294,31 +294,26 @@ function IncentivesSection({
       {/* Federal ITC — honest breakdown */}
       <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 mb-6">
         <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
-          Federal Tax Credit — Section 25D
+          Federal Tax Credits — Verify Current Status
         </p>
-
-        <div className="mb-3">
-          <p className="text-3xl font-bold text-blue-700 mb-1">
-            {formatCurrency(itcDollars)}
-          </p>
-          <p className="text-xs text-blue-600">
-            30% of ~{formatCurrency(costMid)} estimated system cost · Available through 2032
-          </p>
-        </div>
 
         <div className="space-y-2 text-xs text-blue-700 leading-relaxed">
           <p>
-            <span className="font-semibold">Who qualifies:</span> Homeowners who purchase their system outright or with a solar loan. This reduces what you owe the IRS — it requires federal tax liability and is not a refund. Unused credit carries forward one year.
+            Federal residential solar incentives have changed. <span className="font-semibold">Do not rely on any number this tool or a salesperson quotes you for federal credits — verify directly with the IRS or a tax professional before signing anything.</span>
+          </p>
+
+          <p>
+            <span className="font-semibold">If a federal residential credit is available:</span> It would apply only to homeowners who purchase their system outright or with a solar loan. It requires federal tax liability — it is not a refund. Unused credit may carry forward.
           </p>
 
           <div className="p-3 bg-white/60 rounded-lg border border-blue-200">
-            <p className="font-semibold text-blue-800 mb-1">Domestic Content Bonus — additional 10%</p>
-            <p>If your installer uses US-manufactured panels and inverters, you may qualify for an additional {formatCurrency(domesticContentDollars)}. Ask any installer directly: <span className="italic">"Do your components qualify for domestic content under IRA Section 45X?"</span></p>
+            <p className="font-semibold text-blue-800 mb-1">Domestic Content Bonus</p>
+            <p>Separate from the residential credit — if your installer uses US-manufactured panels and inverters, additional incentives may apply under IRA Section 45X. Ask any installer: <span className="italic">"Do your components qualify for domestic content?"</span></p>
           </div>
         </div>
 
         <div className="mt-3 pt-3 border-t border-blue-200">
-          <SourceLink href="https://www.irs.gov/credits-deductions/residential-clean-energy-credit" label="IRS Residential Clean Energy Credit (Form 5695)" />
+          <SourceLink href="https://www.irs.gov/credits-deductions/residential-clean-energy-credit" label="IRS.gov — current federal credit status" />
         </div>
       </div>
 
@@ -417,7 +412,7 @@ function PaybackSection({
           <span className="text-xl font-medium text-slate-400 ml-1">years</span>
         </p>
         <p className="text-sm text-slate-500 mb-1">
-          Net cost after ITC (if you own): {formatCurrency(payback.netCostAfterITC)}
+          Verify any federal credits with IRS.gov before using in your payback math.
         </p>
       </div>
       <div className="space-y-2 text-sm text-slate-600 leading-relaxed">
