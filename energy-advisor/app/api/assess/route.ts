@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Assessment, AssessmentRequest, StateIncentive } from '@/lib/types';
+import type { Assessment, AssessmentRequest, StateIncentive, RoofSegment } from '@/lib/types';
 import {
   azimuthToLabel,
   shadingFromSunshineHours,
@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
     let pitchDegrees = 20;
     let azimuthDegrees = 180; // default south
     let sunshineHoursPerYear = 1600;
+    let roofSegments: RoofSegment[] | undefined;
     let dataQuality: 'high' | 'medium' | 'low' = 'low';
     const warnings: string[] = [];
 
@@ -103,6 +104,18 @@ export async function POST(request: NextRequest) {
           sunshineHoursPerYear = q[5]; // p50
         }
       }
+
+      // Build per-segment data for map overlay
+      roofSegments = segments
+        .filter(seg => seg.center?.latitude && seg.center?.longitude)
+        .map(seg => ({
+          centerLat: seg.center!.latitude,
+          centerLng: seg.center!.longitude,
+          pitchDegrees: seg.pitchDegrees ?? 20,
+          azimuthDegrees: seg.azimuthDegrees ?? 180,
+          areaMeters2: seg.stats?.areaMeters2 ?? 0,
+          sunshineHoursMedian: seg.stats?.sunshineQuantiles?.[5] ?? sunshineHoursPerYear,
+        }));
 
       // If we have a monthly bill, find the optimal panel count from Google Solar configs
       if (monthlyBill && monthlyBill > 0) {
@@ -146,6 +159,7 @@ export async function POST(request: NextRequest) {
 
     // ── Step 6: PVWatts production estimate ──────────────────────────────────
     let annualKwh = 0;
+    let monthlyKwh: number[] | undefined;
     const pvwattsResult = await fetchPVWatts(
       lat,
       lng,
@@ -155,7 +169,8 @@ export async function POST(request: NextRequest) {
     );
 
     if (pvwattsResult !== null) {
-      annualKwh = pvwattsResult * shadingLossFactor;
+      annualKwh = pvwattsResult.acAnnual * shadingLossFactor;
+      monthlyKwh = pvwattsResult.acMonthly?.map(v => Math.round(v * shadingLossFactor));
     } else if (solarPotential?.solarPanelConfigs?.length) {
       // Fallback: use Google Solar DC estimate × AC conversion factor
       const configs: SolarPanelConfig[] = solarPotential.solarPanelConfigs;
@@ -237,6 +252,8 @@ export async function POST(request: NextRequest) {
         shadingScore: shadingInfo.score,
         shadingLabel: shadingInfo.label,
         estimatedPanelCount: panelCount,
+        sunshineHoursPerYear: Math.round(sunshineHoursPerYear),
+        roofSegments,
         lat,
         lng,
         state: stateAbbr,
@@ -246,6 +263,7 @@ export async function POST(request: NextRequest) {
         annualKwh: Math.round(annualKwh),
         systemCapacityKw: Math.round(systemCapacityKw * 10) / 10,
         equivalentHomes: equivalentHomes(annualKwh),
+        monthlyKwh,
       },
       savings: {
         offsetPercent,
@@ -302,6 +320,7 @@ export async function POST(request: NextRequest) {
 interface SolarSegment {
   pitchDegrees?: number;
   azimuthDegrees?: number;
+  center?: { latitude: number; longitude: number };
   stats?: {
     areaMeters2?: number;
     groundAreaMeters2?: number;
@@ -337,7 +356,7 @@ async function fetchPVWatts(
   systemCapacityKw: number,
   azimuth: number,
   tilt: number
-): Promise<number | null> {
+): Promise<{ acAnnual: number; acMonthly: number[] } | null> {
   const key = process.env.NREL_API_KEY;
   if (!key) return null;
   try {
@@ -357,7 +376,10 @@ async function fetchPVWatts(
     );
     if (!res.ok) return null;
     const data = await res.json();
-    return (data.outputs?.ac_annual as number) ?? null;
+    const acAnnual = data.outputs?.ac_annual as number;
+    const acMonthly = data.outputs?.ac_monthly as number[];
+    if (acAnnual == null) return null;
+    return { acAnnual, acMonthly: acMonthly ?? [] };
   } catch {
     return null;
   }

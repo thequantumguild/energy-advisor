@@ -5,6 +5,15 @@ export interface AssessmentRequest {
   shadingOverride?: 'yes' | 'partially' | 'lots';
 }
 
+export interface RoofSegment {
+  centerLat: number;
+  centerLng: number;
+  pitchDegrees: number;
+  azimuthDegrees: number;
+  areaMeters2: number;
+  sunshineHoursMedian: number;
+}
+
 export interface RoofData {
   usableAreaSqFt: number;
   azimuthDegrees: number;
@@ -13,16 +22,19 @@ export interface RoofData {
   shadingScore: 'minimal' | 'moderate' | 'significant';
   shadingLabel: string;
   estimatedPanelCount: number;
+  sunshineHoursPerYear: number;
   lat: number;
   lng: number;
   state: string;
   stateName: string;
+  roofSegments?: RoofSegment[];
 }
 
 export interface ProductionData {
   annualKwh: number;
   systemCapacityKw: number;
   equivalentHomes: number;
+  monthlyKwh?: number[];
 }
 
 export interface SavingsData {

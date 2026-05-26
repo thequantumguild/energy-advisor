@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import type { Assessment, StateIncentive } from '@/lib/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import SolarSegmentOverlay from './SolarSegmentOverlay';
+import MonthlyProductionChart from './MonthlyProductionChart';
 
 interface Props {
   assessment: Assessment;
@@ -132,34 +134,53 @@ function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofIma
     significant: 'bg-red-100 text-red-700',
   }[roof.shadingScore];
 
+  const peakSunHoursPerDay = (roof.sunshineHoursPerYear / 365).toFixed(1);
+  const hasSegments = roof.roofSegments && roof.roofSegments.length > 0;
+
   return (
     <Card>
       <SectionLabel>Your Roof</SectionLabel>
 
       {roofImageUrl && !imgFailed && (
         <div className="mb-5 rounded-xl overflow-hidden border border-slate-100">
-          <img
-            src={roofImageUrl}
-            alt="Satellite view of property"
-            className="w-full h-56 object-cover"
-            onError={() => setImgFailed(true)}
-          />
+          {/* Satellite image with optional segment overlay */}
+          <div className="relative w-full aspect-[2/1]">
+            <img
+              src={roofImageUrl}
+              alt="Satellite view of property"
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={() => setImgFailed(true)}
+            />
+            {hasSegments && (
+              <SolarSegmentOverlay
+                centerLat={roof.lat}
+                centerLng={roof.lng}
+                segments={roof.roofSegments!}
+              />
+            )}
+          </div>
           <p className="text-xs text-slate-400 text-center py-1.5 bg-slate-50 border-t border-slate-100">
-            Satellite imagery — Google Maps
+            {hasSegments
+              ? 'Hover roof segments to see solar potential · Google Solar API'
+              : 'Satellite imagery — Google Maps'}
           </p>
         </div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Stat label="Usable solar area" value={`${formatNumber(roof.usableAreaSqFt)} sq ft`} />
-        <Stat label="Orientation" value={roof.azimuthLabel} />
-        <Stat label="Estimated panels" value={`${roof.estimatedPanelCount}`} sub={`~${Math.round(roof.estimatedPanelCount * 0.4 * 10) / 10} kW system`} />
+        <Stat label="Orientation" value={roof.azimuthLabel} sub={`${roof.pitchDegrees}° pitch`} />
+        <Stat
+          label="Peak sun hours"
+          value={`${peakSunHoursPerDay} hrs/day`}
+          sub={`${formatNumber(roof.sunshineHoursPerYear)} hrs/yr`}
+        />
         <div>
           <p className="text-xs text-slate-500 mb-1">Shading</p>
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${shadingColor}`}>
             {roof.shadingLabel}
           </span>
-          <p className="text-xs text-slate-400 mt-1.5">{roof.pitchDegrees}° roof pitch</p>
+          <p className="text-xs text-slate-400 mt-1.5">{roof.estimatedPanelCount} panels estimated</p>
         </div>
       </div>
 
@@ -182,19 +203,28 @@ function ProductionSection({ production }: { production: Assessment['production'
       : `Enough to power ${homes} average US homes per year`;
 
   return (
-    <Card>
+    <Card className="md:col-span-2">
       <SectionLabel>Estimated Production</SectionLabel>
-      <p className="text-4xl font-bold text-slate-900 mb-1">
-        {formatNumber(production.annualKwh)}
-        <span className="text-xl font-medium text-slate-400 ml-1">kWh / yr</span>
-      </p>
-      <p className="text-sm text-slate-500 mb-4">{homesLabel}</p>
-      <div className="pt-4 border-t border-slate-100 space-y-3">
+      <div className="flex flex-wrap items-end gap-6 mb-1">
+        <div>
+          <p className="text-4xl font-bold text-slate-900">
+            {formatNumber(production.annualKwh)}
+            <span className="text-xl font-medium text-slate-400 ml-1">kWh / yr</span>
+          </p>
+          <p className="text-sm text-slate-500 mt-1">{homesLabel}</p>
+        </div>
         <Stat
           label="System size"
           value={`${production.systemCapacityKw} kW`}
           sub="DC nameplate capacity"
         />
+      </div>
+
+      {production.monthlyKwh && production.monthlyKwh.length === 12 && (
+        <MonthlyProductionChart monthlyKwh={production.monthlyKwh} />
+      )}
+
+      <div className="pt-4 border-t border-slate-100 mt-4">
         <SourceLink href="https://pvwatts.nrel.gov/" label="NREL PVWatts V8" />
       </div>
     </Card>

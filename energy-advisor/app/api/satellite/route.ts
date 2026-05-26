@@ -16,8 +16,7 @@ export async function GET(request: NextRequest) {
 
   const url =
     `https://maps.googleapis.com/maps/api/staticmap` +
-    `?center=${lat},${lng}&zoom=20&maptype=satellite&size=640x320` +
-    `&markers=color:red%7Clabel:%20%7C${lat},${lng}&key=${key}`;
+    `?center=${lat},${lng}&zoom=20&maptype=satellite&size=640x320&key=${key}`;
 
   try {
     const res = await fetch(url);
