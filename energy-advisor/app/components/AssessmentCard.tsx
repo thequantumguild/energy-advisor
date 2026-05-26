@@ -585,30 +585,36 @@ function FlagsSection({
 }) {
   const flags = [
     {
-      title: 'Fair price is $2.70–$3.50 per watt',
-      body: `A ${cost.systemCapacityKw} kW system should cost roughly ${formatCurrency(cost.lowEstimate)}–${formatCurrency(cost.highEstimate)} before incentives. If a quote is more than 20% above that range, ask the rep to explain the markup in detail.`,
+      title: 'Fair price is $2.70–$3.50 per watt (LBNL 2024)',
+      body: `A ${cost.systemCapacityKw} kW system should cost roughly ${formatCurrency(cost.lowEstimate)}–${formatCurrency(cost.highEstimate)} before incentives, based on Lawrence Berkeley National Laboratory's national residential benchmark. If a quote is more than 20% above that range, ask the installer to explain the markup line by line.`,
+      source: { href: 'https://emp.lbl.gov/tracking-the-sun', label: 'LBNL Tracking the Sun 2024' },
     },
     {
-      title: 'Battery storage doesn\'t eliminate your bill',
-      body: 'Some installers sell solar + battery as complete bill elimination. That only works if your battery is large enough to cover overnight usage and your utility has a time-of-use tariff that makes it worth it. Model the numbers before signing.',
+      title: 'Battery storage will not eliminate your utility bill',
+      body: 'Every utility charges a fixed monthly connection fee — typically $10–$30 — regardless of how much energy you produce or store. On top of that, any consumption that exceeds what your battery stored draws from the grid. Battery storage can meaningfully cut what you owe and provide backup power during outages, but "zero bill" is a sales claim. Ask to see your utility\'s interconnection agreement and rate tariff before believing it.',
+      source: null,
     },
     {
-      title: 'A PPA means you don\'t own the panels',
-      body: 'A Power Purchase Agreement lets a company put panels on your roof — but they own them. You buy the electricity they produce at a set rate. You can\'t claim the federal tax credit (they do), and selling your home with a PPA in place can complicate things.',
+      title: 'Lease and PPA: the company owns the panels — and the tax credit',
+      body: 'A solar lease and a Power Purchase Agreement (PPA) both place third-party-owned panels on your roof. In a lease you pay a fixed monthly amount; in a PPA you pay per kWh produced. Either way, the company — not you — claims the 30% federal residential clean energy credit, because IRS Form 5695 requires the taxpayer to own the system. In almost every 25-year model, a cash purchase or solar loan produces better economics than a lease or PPA. Third-party options do serve a real need for homeowners who cannot afford upfront costs or do not qualify for financing — but go in knowing what you are giving up. Selling a home with a lease or PPA in place can also complicate the transaction.',
+      source: { href: 'https://www.irs.gov/credits-deductions/residential-clean-energy-credit', label: 'IRS Form 5695 — Residential Clean Energy Credit' },
     },
     {
-      title: 'One company, one quote is a pressure play',
-      body: 'Any installer who won\'t give you a week to get competing quotes isn\'t confident in their pricing. Three quotes is the standard. A $25,000 purchase deserves at least a weekend of comparison shopping.',
+      title: 'Get multiple quotes and read every word of the contract',
+      body: 'Any installer who pressures you to sign before you have time to compare is not confident their quote can stand on its own. Three quotes is the standard minimum. Before signing anything, read the full contract — not just the price page. Understand the annual payment escalator (how much your lease or PPA payment increases each year), what happens if you sell the home, and who is responsible for maintenance and warranty claims. If a term is unclear, ask for a plain-language explanation in writing before you sign.',
+      source: null,
     },
     {
-      title: 'Payback under 5 years is almost always misleading',
-      body: `Legitimate payback periods for residential solar run 7–12 years. A sub-5-year claim usually inflates future utility rates, overstates production, omits financing costs, or assumes tax credits that may not apply to you. Ask to see the full assumption sheet.`,
+      title: 'The real question: will I save money starting day one?',
+      body: 'Aggregate payback math is abstract. What actually matters to most homeowners is whether the solar payment is less than the bill reduction from month one. With a PPA or lease you will likely see immediate savings compared to your current bill — but over 25 years you will almost certainly pay more than if you had purchased outright. With a solar loan, compare your monthly loan payment against your expected bill reduction — in many markets the savings exceed the payment from the first month. Cash purchase has the best long-term economics but requires capital upfront. Ask every installer to show you a year-one cash flow comparison across all three options, not just a payback year number.',
+      source: null,
     },
     ...(incentives.netMeteringStatus !== 'full'
       ? [
           {
             title: 'Your state has limited net metering — self-consumption matters more',
-            body: `${incentives.netMeteringDetail} This means the value of solar here is highest when you use power as it's generated.`,
+            body: `${incentives.netMeteringDetail} This means the value of solar here is highest when you use power as it is generated, rather than exporting it to the grid.`,
+            source: null,
           },
         ]
       : []),
@@ -629,6 +635,11 @@ function FlagsSection({
             <div>
               <p className="text-sm font-semibold text-slate-800 mb-1">{flag.title}</p>
               <p className="text-sm text-slate-600 leading-relaxed">{flag.body}</p>
+              {flag.source && (
+                <div className="mt-1.5">
+                  <SourceLink href={flag.source.href} label={flag.source.label} />
+                </div>
+              )}
             </div>
           </div>
         ))}
