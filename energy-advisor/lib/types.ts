@@ -127,7 +127,10 @@ export interface IncentiveData {
 export interface PaybackData {
   lowYears: number;
   highYears: number;
-  netCostAfterITC: number;
+  grossCost: number;
+  itcDollars?: number;
+  withITCLowYears?: number;
+  withITCHighYears?: number;
 }
 
 export interface FluxMapData {

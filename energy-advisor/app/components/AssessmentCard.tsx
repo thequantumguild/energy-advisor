@@ -612,7 +612,7 @@ function PaybackSection({
             {payback.lowYears}–{payback.highYears}
             <span className="text-xl font-medium text-slate-400 ml-1">years</span>
           </p>
-          <p className="text-xs text-slate-400 mt-1">Net cost after 30% ITC: {formatCurrency(payback.netCostAfterITC)}</p>
+          <p className="text-xs text-slate-400 mt-1">System cost: {formatCurrency(payback.grossCost)} · No tax credit assumed</p>
         </div>
         {googleFinancial && (
           <div className="sm:border-l sm:border-slate-100 sm:pl-6">
@@ -626,12 +626,6 @@ function PaybackSection({
                 <div className="flex justify-between">
                   <span>Lifetime savings</span>
                   <span className="font-medium text-slate-700">{formatCurrency(googleFinancial.lifetimeSavingsDollars)}</span>
-                </div>
-              )}
-              {googleFinancial.federalIncentiveDollars > 0 && (
-                <div className="flex justify-between">
-                  <span>Federal incentive</span>
-                  <span className="font-medium text-slate-700">{formatCurrency(googleFinancial.federalIncentiveDollars)}</span>
                 </div>
               )}
               {googleFinancial.solarPercentage > 0 && (
@@ -650,6 +644,17 @@ function PaybackSection({
           </div>
         )}
       </div>
+      {/* ITC callout — only relevant if customer owns the system */}
+      {payback.itcDollars && payback.withITCLowYears && payback.withITCHighYears && (
+        <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 mb-4 space-y-1">
+          <p className="text-xs font-semibold text-blue-800">Own it outright or finance with a solar loan?</p>
+          <p className="text-xs text-blue-700 leading-relaxed">
+            The 30% federal Residential Clean Energy Credit ({formatCurrency(payback.itcDollars)}) reduces your cost — bringing payback down to approximately <strong>{payback.withITCLowYears}–{payback.withITCHighYears} years</strong>.
+            This credit only applies when you own the system. With a lease or PPA, the installer claims it — not you.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-2 text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-4">
         <p>The lower end assumes modest utility rate increases and high self-consumption. The upper end uses today's rate with no escalation.</p>
         {savings.isStateAverage && (

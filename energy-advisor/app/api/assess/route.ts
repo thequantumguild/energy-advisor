@@ -290,10 +290,15 @@ export async function POST(request: NextRequest) {
       i.name.toLowerCase().includes('sgip')
     );
 
+    // Payback without ITC — the honest default (TPO/lease customers never see the credit)
+    const paybackLowRaw  = costLow  / (annualSavings * 1.05);
+    const paybackHighRaw = costHigh / annualSavings;
+    // ITC scenario — only applies when customer OWNS the system (cash or loan)
+    const itcDollars = Math.round(costMidpoint * FEDERAL_ITC_PERCENT);
     const netCostLow  = costLow  * (1 - FEDERAL_ITC_PERCENT);
     const netCostHigh = costHigh * (1 - FEDERAL_ITC_PERCENT);
-    const paybackLowRaw  = netCostLow  / (annualSavings * 1.05);
-    const paybackHighRaw = netCostHigh / annualSavings;
+    const paybackWithITCLow  = netCostLow  / (annualSavings * 1.05);
+    const paybackWithITCHigh = netCostHigh / annualSavings;
 
     const shadingInfo = shadingFromSunshineHours(sunshineHoursPerYear);
 
@@ -383,9 +388,12 @@ export async function POST(request: NextRequest) {
         storageDetail: storageIncentive?.description,
       },
       payback: {
-        lowYears: Math.max(4, Math.round(paybackLowRaw)),
-        highYears: Math.max(5, Math.round(paybackHighRaw)),
-        netCostAfterITC: Math.round(((costLow + costHigh) / 2) * (1 - FEDERAL_ITC_PERCENT)),
+        lowYears:        Math.max(5, Math.round(paybackLowRaw)),
+        highYears:       Math.max(6, Math.round(paybackHighRaw)),
+        grossCost:       Math.round((costLow + costHigh) / 2),
+        itcDollars,
+        withITCLowYears:  Math.max(4, Math.round(paybackWithITCLow)),
+        withITCHighYears: Math.max(5, Math.round(paybackWithITCHigh)),
       },
       generatedAt: new Date().toISOString(),
       dataQuality,
