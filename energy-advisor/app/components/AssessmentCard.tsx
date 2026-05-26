@@ -391,7 +391,10 @@ function ProductionSection({
       )}
 
       <div className="pt-4 border-t border-slate-100 mt-4">
-        <SourceLink href="https://pvwatts.nrel.gov/" label="NREL PVWatts V8" />
+        {production.pvwattsAnnualKwh != null
+          ? <SourceLink href="https://pvwatts.nrel.gov/" label="NREL PVWatts V8" />
+          : <SourceLink href="https://developers.google.com/maps/documentation/solar" label="Google Solar API" />
+        }
       </div>
     </Card>
   );

@@ -253,7 +253,6 @@ export async function POST(request: NextRequest) {
       annualKwh = pvwattsAnnualKwh;
     } else if (googleAnnualKwh != null) {
       annualKwh = googleAnnualKwh;
-      warnings.push('Production estimate uses Google Solar data — PVWatts was unavailable.');
     } else {
       annualKwh = Math.round(systemCapacityKw * 1400 * shadingLossFactor);
       warnings.push('Production is estimated using national averages.');
