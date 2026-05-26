@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import type { Assessment, StateIncentive } from '@/lib/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import SolarMap from './SolarMap';
 import SolarSegmentOverlay from './SolarSegmentOverlay';
 import MonthlyProductionChart from './MonthlyProductionChart';
+import PanelSlider from './PanelSlider';
+import RoofHistogram from './RoofHistogram';
 
 interface Props {
   assessment: Assessment;
@@ -32,19 +35,26 @@ export default function AssessmentCard({ assessment }: Props) {
         </div>
       ))}
 
-      {/* Roof — full width with satellite image */}
+      {/* Roof — full width with interactive map */}
       <RoofSection roof={roof} roofImageUrl={assessment.roofImageUrl} />
 
       {/* 2-column grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ProductionSection production={production} />
+        <ProductionSection production={production} utilityRate={savings.utilityRatePerKwh} />
         <SavingsSection savings={savings} />
         <CostSection cost={cost} />
+        {roof.carbonOffsetKgPerMwh && (
+          <CarbonSection
+            annualKwh={production.annualKwh}
+            carbonOffsetKgPerMwh={roof.carbonOffsetKgPerMwh}
+            panelLifetimeYears={roof.panelLifetimeYears}
+          />
+        )}
       </div>
 
       {/* Full-width sections */}
       <IncentivesSection incentives={incentives} cost={cost} />
-      <PaybackSection payback={payback} savings={savings} />
+      <PaybackSection payback={payback} savings={savings} googleFinancial={assessment.googleFinancial} />
       <FlagsSection cost={cost} incentives={incentives} />
     </div>
   );
@@ -127,6 +137,7 @@ function WarningIcon() {
 
 function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofImageUrl?: string }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
 
   const shadingColor = {
     minimal:     'bg-green-100 text-green-700',
@@ -135,15 +146,32 @@ function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofIma
   }[roof.shadingScore];
 
   const peakSunHoursPerDay = (roof.sunshineHoursPerYear / 365).toFixed(1);
-  const hasSegments = roof.roofSegments && roof.roofSegments.length > 0;
+  const hasSegments = !!(roof.roofSegments && roof.roofSegments.length > 0);
+  const useInteractiveMap = hasSegments && !mapFailed;
 
   return (
     <Card>
-      <SectionLabel>Your Roof</SectionLabel>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Your Roof</p>
+        {roof.imageryDate && (
+          <span className="text-xs text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
+            Imagery: {roof.imageryDate}
+          </span>
+        )}
+      </div>
 
-      {roofImageUrl && !imgFailed && (
+      {/* Interactive map (preferred) or static satellite fallback */}
+      {useInteractiveMap ? (
+        <div className="mb-5">
+          <SolarMap
+            centerLat={roof.lat}
+            centerLng={roof.lng}
+            segments={roof.roofSegments!}
+            onError={() => setMapFailed(true)}
+          />
+        </div>
+      ) : roofImageUrl && !imgFailed ? (
         <div className="mb-5 rounded-xl overflow-hidden border border-slate-100">
-          {/* Satellite image with optional segment overlay */}
           <div className="relative w-full aspect-[2/1]">
             <img
               src={roofImageUrl}
@@ -165,9 +193,14 @@ function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofIma
               : 'Satellite imagery — Google Maps'}
           </p>
         </div>
+      ) : null}
+
+      {/* Sunshine distribution across all roof areas */}
+      {roof.wholeRoofStats?.sunshineQuantiles && (
+        <RoofHistogram sunshineQuantiles={roof.wholeRoofStats.sunshineQuantiles} />
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
         <Stat label="Usable solar area" value={`${formatNumber(roof.usableAreaSqFt)} sq ft`} />
         <Stat label="Orientation" value={roof.azimuthLabel} sub={`${roof.pitchDegrees}° pitch`} />
         <Stat
@@ -184,6 +217,20 @@ function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofIma
         </div>
       </div>
 
+      {/* Panel specs from Solar API */}
+      {(roof.panelHeightMeters || roof.panelWidthMeters || roof.panelLifetimeYears) && (
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
+          {roof.panelHeightMeters && roof.panelWidthMeters && (
+            <span>
+              Panel size: {(roof.panelHeightMeters * 100).toFixed(0)} × {(roof.panelWidthMeters * 100).toFixed(0)} cm
+            </span>
+          )}
+          {roof.panelLifetimeYears && (
+            <span>Panel lifetime: {roof.panelLifetimeYears} yrs</span>
+          )}
+        </div>
+      )}
+
       <div className="mt-4 pt-4 border-t border-slate-100">
         <SourceLink href="https://developers.google.com/maps/documentation/solar" label="Google Solar API" />
       </div>
@@ -193,7 +240,13 @@ function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofIma
 
 // ── Section 2: Your Production ───────────────────────────────────────────────
 
-function ProductionSection({ production }: { production: Assessment['production'] }) {
+function ProductionSection({
+  production,
+  utilityRate,
+}: {
+  production: Assessment['production'];
+  utilityRate: number;
+}) {
   const homes = production.equivalentHomes;
   const homesLabel =
     homes < 1
@@ -218,10 +271,25 @@ function ProductionSection({ production }: { production: Assessment['production'
           value={`${production.systemCapacityKw} kW`}
           sub="DC nameplate capacity"
         />
+        {production.panelCapacityWatts && (
+          <Stat
+            label="Panel capacity"
+            value={`${production.panelCapacityWatts}W`}
+            sub="per panel"
+          />
+        )}
       </div>
 
       {production.monthlyKwh && production.monthlyKwh.length === 12 && (
         <MonthlyProductionChart monthlyKwh={production.monthlyKwh} />
+      )}
+
+      {production.panelConfigs && production.panelConfigs.length > 0 && production.panelCapacityWatts && (
+        <PanelSlider
+          panelConfigs={production.panelConfigs}
+          panelCapacityWatts={production.panelCapacityWatts}
+          utilityRate={utilityRate}
+        />
       )}
 
       <div className="pt-4 border-t border-slate-100 mt-4">
@@ -292,7 +360,52 @@ function CostSection({ cost }: { cost: Assessment['cost'] }) {
   );
 }
 
-// ── Section 5: Incentives ────────────────────────────────────────────────────
+// ── Section 5: Carbon Offset ─────────────────────────────────────────────────
+
+function CarbonSection({
+  annualKwh,
+  carbonOffsetKgPerMwh,
+  panelLifetimeYears,
+}: {
+  annualKwh: number;
+  carbonOffsetKgPerMwh: number;
+  panelLifetimeYears?: number;
+}) {
+  const annualCo2Kg = Math.round((annualKwh / 1000) * carbonOffsetKgPerMwh);
+  const lifetimeCo2Kg = panelLifetimeYears ? annualCo2Kg * panelLifetimeYears : null;
+  const treesEquivalent = Math.round(annualCo2Kg / 21.77);
+  const carsOffRoad = (annualCo2Kg / 4600).toFixed(1);
+
+  return (
+    <Card>
+      <SectionLabel>Carbon Offset</SectionLabel>
+      <p className="text-3xl font-bold text-emerald-600 mb-1">
+        {formatNumber(annualCo2Kg)}
+        <span className="text-lg font-medium text-emerald-400 ml-1">kg CO₂ / yr</span>
+      </p>
+      {lifetimeCo2Kg && (
+        <p className="text-xs text-slate-400 mb-4">
+          {formatNumber(Math.round(lifetimeCo2Kg / 1000))} metric tons over {panelLifetimeYears}-year panel life
+        </p>
+      )}
+      <div className="space-y-2 mt-3">
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <span className="text-lg">🌳</span>
+          <span>Equivalent to planting <strong>{formatNumber(treesEquivalent)}</strong> trees per year</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <span className="text-lg">🚗</span>
+          <span>Like taking <strong>{carsOffRoad}</strong> cars off the road</span>
+        </div>
+      </div>
+      <div className="mt-4 pt-4 border-t border-slate-100">
+        <SourceLink href="https://developers.google.com/maps/documentation/solar" label="Google Solar API" />
+      </div>
+    </Card>
+  );
+}
+
+// ── Section 6: Incentives ────────────────────────────────────────────────────
 
 function IncentivesSection({
   incentives,
@@ -313,15 +426,10 @@ function IncentivesSection({
     none:    'No net metering',
   }[incentives.netMeteringStatus];
 
-  const costMid = (cost.lowEstimate + cost.highEstimate) / 2;
-  const itcDollars = costMid * 0.30;
-  const domesticContentDollars = costMid * 0.10;
-
   return (
     <Card>
       <SectionLabel>Federal & State Incentives</SectionLabel>
 
-      {/* Incentives placeholder */}
       <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
         <p className="text-sm font-semibold text-slate-700 mb-2">Verified incentive data coming soon</p>
         <p className="text-xs text-slate-500 leading-relaxed">
@@ -333,7 +441,6 @@ function IncentivesSection({
         </div>
       </div>
 
-      {/* Net metering */}
       <div className="mt-6">
         <p className="text-xs text-slate-500 mb-2">Net Metering</p>
         <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${nmColor}`}>
@@ -347,6 +454,7 @@ function IncentivesSection({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function IncentiveRow({ incentive }: { incentive: StateIncentive }) {
   const typeColor = {
     state:   'bg-purple-100 text-purple-700',
@@ -377,31 +485,82 @@ function IncentiveRow({ incentive }: { incentive: StateIncentive }) {
   );
 }
 
-// ── Section 6: Payback Range ─────────────────────────────────────────────────
+// ── Section 7: Payback Range ─────────────────────────────────────────────────
 
 function PaybackSection({
   payback,
   savings,
+  googleFinancial,
 }: {
   payback: Assessment['payback'];
   savings: Assessment['savings'];
+  googleFinancial?: Assessment['googleFinancial'];
 }) {
   return (
     <Card>
       <SectionLabel>Payback Range</SectionLabel>
-      <div className="flex items-end gap-4 mb-4">
-        <p className="text-4xl font-bold text-slate-900">
-          {payback.lowYears}–{payback.highYears}
-          <span className="text-xl font-medium text-slate-400 ml-1">years</span>
-        </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
+        {/* LBNL benchmark estimate */}
+        <div>
+          <p className="text-xs text-slate-400 mb-1">LBNL benchmark estimate</p>
+          <p className="text-4xl font-bold text-slate-900">
+            {payback.lowYears}–{payback.highYears}
+            <span className="text-xl font-medium text-slate-400 ml-1">years</span>
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Net cost after 30% ITC: {formatCurrency(payback.netCostAfterITC)}
+          </p>
+        </div>
+
+        {/* Google Solar API estimate */}
+        {googleFinancial && (
+          <div className="sm:border-l sm:border-slate-100 sm:pl-6">
+            <p className="text-xs text-slate-400 mb-1">Google Solar API estimate</p>
+            <p className="text-4xl font-bold text-blue-700">
+              {googleFinancial.paybackYears.toFixed(1)}
+              <span className="text-xl font-medium text-blue-400 ml-1">years</span>
+            </p>
+            <div className="mt-2 space-y-1 text-xs text-slate-500">
+              {googleFinancial.lifetimeSavingsDollars > 0 && (
+                <div className="flex justify-between">
+                  <span>Lifetime savings</span>
+                  <span className="font-medium text-slate-700">
+                    {formatCurrency(googleFinancial.lifetimeSavingsDollars)}
+                  </span>
+                </div>
+              )}
+              {googleFinancial.federalIncentiveDollars > 0 && (
+                <div className="flex justify-between">
+                  <span>Federal incentive</span>
+                  <span className="font-medium text-slate-700">
+                    {formatCurrency(googleFinancial.federalIncentiveDollars)}
+                  </span>
+                </div>
+              )}
+              {googleFinancial.solarPercentage > 0 && (
+                <div className="flex justify-between">
+                  <span>Solar % of usage</span>
+                  <span className="font-medium text-slate-700">
+                    {Math.round(googleFinancial.solarPercentage)}%
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Net metering</span>
+                <span className={`font-medium ${googleFinancial.netMeteringAllowed ? 'text-green-600' : 'text-red-600'}`}>
+                  {googleFinancial.netMeteringAllowed ? 'Yes' : 'No'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="space-y-2 text-sm text-slate-600 leading-relaxed">
+
+      <div className="space-y-2 text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-4">
         <p>
           The lower end assumes modest utility rate increases over time and high self-consumption of what you produce.
           The upper end uses today's rate with no escalation.
-        </p>
-        <p>
-          Where you land depends on your actual usage pattern, your utility's rate decisions, and whether you carry battery storage.
         </p>
         {savings.isStateAverage && (
           <p className="text-amber-600">
@@ -413,7 +572,7 @@ function PaybackSection({
   );
 }
 
-// ── Section 7: What to Watch For ────────────────────────────────────────────
+// ── Section 8: What to Watch For ────────────────────────────────────────────
 
 function FlagsSection({
   cost,

@@ -28,6 +28,32 @@ export interface RoofData {
   state: string;
   stateName: string;
   roofSegments?: RoofSegment[];
+  imageryDate?: string;
+  carbonOffsetKgPerMwh?: number;
+  panelLifetimeYears?: number;
+  panelHeightMeters?: number;
+  panelWidthMeters?: number;
+  wholeRoofStats?: WholeRoofStats;
+}
+
+export interface PanelConfig {
+  panelsCount: number;
+  yearlyEnergyDcKwh: number;
+}
+
+export interface WholeRoofStats {
+  areaMeters2: number;
+  groundAreaMeters2: number;
+  sunshineQuantiles: number[];
+}
+
+export interface GoogleFinancialSummary {
+  monthlyBillDollars: number;
+  paybackYears: number;
+  lifetimeSavingsDollars: number;
+  federalIncentiveDollars: number;
+  netMeteringAllowed: boolean;
+  solarPercentage: number;
 }
 
 export interface ProductionData {
@@ -35,6 +61,8 @@ export interface ProductionData {
   systemCapacityKw: number;
   equivalentHomes: number;
   monthlyKwh?: number[];
+  panelConfigs?: PanelConfig[];
+  panelCapacityWatts?: number;
 }
 
 export interface SavingsData {
@@ -90,4 +118,5 @@ export interface Assessment {
   dataQuality: 'high' | 'medium' | 'low';
   warnings?: string[];
   roofImageUrl?: string;
+  googleFinancial?: GoogleFinancialSummary;
 }

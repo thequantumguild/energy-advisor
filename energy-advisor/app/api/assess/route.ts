@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Assessment, AssessmentRequest, StateIncentive, RoofSegment } from '@/lib/types';
+import type { Assessment, AssessmentRequest, StateIncentive, RoofSegment, PanelConfig, WholeRoofStats, GoogleFinancialSummary } from '@/lib/types';
 import {
   azimuthToLabel,
   shadingFromSunshineHours,
@@ -75,6 +75,14 @@ export async function POST(request: NextRequest) {
     let azimuthDegrees = 180; // default south
     let sunshineHoursPerYear = 1600;
     let roofSegments: RoofSegment[] | undefined;
+    let panelConfigs: PanelConfig[] | undefined;
+    let imageryDate: string | undefined;
+    let carbonOffsetKgPerMwh: number | undefined;
+    let panelLifetimeYears: number | undefined;
+    let panelHeightMeters: number | undefined;
+    let panelWidthMeters: number | undefined;
+    let wholeRoofStats: WholeRoofStats | undefined;
+    let googleFinancial: GoogleFinancialSummary | undefined;
     let dataQuality: 'high' | 'medium' | 'low' = 'low';
     const warnings: string[] = [];
 
@@ -116,6 +124,60 @@ export async function POST(request: NextRequest) {
           areaMeters2: seg.stats?.areaMeters2 ?? 0,
           sunshineHoursMedian: seg.stats?.sunshineQuantiles?.[5] ?? sunshineHoursPerYear,
         }));
+
+      // Panel configs curve for slider
+      panelConfigs = (solarPotential.solarPanelConfigs || []).map((c: SolarPanelConfig) => ({
+        panelsCount: c.panelsCount,
+        yearlyEnergyDcKwh: c.yearlyEnergyDcKwh ?? 0,
+      }));
+
+      // Additional roof / panel metadata
+      carbonOffsetKgPerMwh = solarPotential.carbonOffsetFactorKgPerMwh ?? undefined;
+      panelLifetimeYears   = solarPotential.panelLifetimeYears ?? undefined;
+      panelHeightMeters    = solarPotential.panelHeightMeters ?? undefined;
+      panelWidthMeters     = solarPotential.panelWidthMeters ?? undefined;
+
+      // Whole-roof sunshine distribution
+      const wrs = solarPotential.wholeRoofStats;
+      if (wrs?.sunshineQuantiles?.length) {
+        wholeRoofStats = {
+          areaMeters2:       wrs.areaMeters2 ?? 0,
+          groundAreaMeters2: wrs.groundAreaMeters2 ?? 0,
+          sunshineQuantiles: wrs.sunshineQuantiles,
+        };
+      }
+
+      // Imagery date
+      const img = solarData?.imageryDate;
+      if (img?.year && img?.month) {
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        imageryDate = `${MONTHS[img.month - 1]} ${img.year}`;
+      }
+
+      // Google's pre-computed financial analysis
+      const analyses: GoogleAnalysis[] = solarPotential.financialAnalyses || [];
+      if (analyses.length > 0) {
+        let best = analyses[Math.floor(analyses.length / 2)];
+        if (monthlyBill && monthlyBill > 0) {
+          let minDiff = Infinity;
+          for (const a of analyses) {
+            const diff = Math.abs(parseInt(a.monthlyBill?.units ?? '0') - monthlyBill);
+            if (diff < minDiff) { minDiff = diff; best = a; }
+          }
+        }
+        const cash    = best.cashPurchaseSavings;
+        const details = best.financialDetails;
+        if (cash && details) {
+          googleFinancial = {
+            monthlyBillDollars:    parseInt(best.monthlyBill?.units ?? '0'),
+            paybackYears:          cash.paybackYears ?? 0,
+            lifetimeSavingsDollars: parseInt(cash.savings?.presentValueOfSavingsLifetime?.units ?? '0'),
+            federalIncentiveDollars: parseInt(details.federalIncentive?.units ?? '0'),
+            netMeteringAllowed:    details.netMeteringAllowed ?? false,
+            solarPercentage:       details.solarPercentage ?? 0,
+          };
+        }
+      }
 
       // If we have a monthly bill, find the optimal panel count from Google Solar configs
       if (monthlyBill && monthlyBill > 0) {
@@ -254,6 +316,12 @@ export async function POST(request: NextRequest) {
         estimatedPanelCount: panelCount,
         sunshineHoursPerYear: Math.round(sunshineHoursPerYear),
         roofSegments,
+        imageryDate,
+        carbonOffsetKgPerMwh,
+        panelLifetimeYears,
+        panelHeightMeters,
+        panelWidthMeters,
+        wholeRoofStats,
         lat,
         lng,
         state: stateAbbr,
@@ -264,6 +332,8 @@ export async function POST(request: NextRequest) {
         systemCapacityKw: Math.round(systemCapacityKw * 10) / 10,
         equivalentHomes: equivalentHomes(annualKwh),
         monthlyKwh,
+        panelConfigs,
+        panelCapacityWatts,
       },
       savings: {
         offsetPercent,
@@ -300,6 +370,7 @@ export async function POST(request: NextRequest) {
       dataQuality,
       warnings: warnings.length > 0 ? warnings : undefined,
       roofImageUrl: `/api/satellite?lat=${lat}&lng=${lng}`,
+      googleFinancial,
     };
 
     return NextResponse.json(assessment);
@@ -331,6 +402,19 @@ interface SolarSegment {
 interface SolarPanelConfig {
   panelsCount: number;
   yearlyEnergyDcKwh?: number;
+}
+
+interface GoogleAnalysis {
+  monthlyBill?: { units?: string };
+  cashPurchaseSavings?: {
+    paybackYears?: number;
+    savings?: { presentValueOfSavingsLifetime?: { units?: string } };
+  };
+  financialDetails?: {
+    federalIncentive?: { units?: string };
+    netMeteringAllowed?: boolean;
+    solarPercentage?: number;
+  };
 }
 
 async function fetchSolarData(lat: number, lng: number) {
