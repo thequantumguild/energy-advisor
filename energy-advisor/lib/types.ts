@@ -7,6 +7,12 @@ export interface AssessmentRequest {
   lng?: number;
 }
 
+export interface PanelSegmentSummary {
+  segmentIndex: number;
+  panelsCount: number;
+  yearlyEnergyDcKwh: number;
+}
+
 export interface RoofSegment {
   centerLat: number;
   centerLng: number;
@@ -31,16 +37,20 @@ export interface RoofData {
   stateName: string;
   roofSegments?: RoofSegment[];
   imageryDate?: string;
+  imageryQuality?: 'HIGH' | 'MEDIUM' | 'LOW';
   carbonOffsetKgPerMwh?: number;
   panelLifetimeYears?: number;
   panelHeightMeters?: number;
   panelWidthMeters?: number;
   wholeRoofStats?: WholeRoofStats;
+  maxPanelCount?: number;
+  maxUsableAreaSqFt?: number;
 }
 
 export interface PanelConfig {
   panelsCount: number;
   yearlyEnergyDcKwh: number;
+  segmentSummaries?: PanelSegmentSummary[];
 }
 
 export interface WholeRoofStats {
@@ -65,15 +75,27 @@ export interface ProductionData {
   monthlyKwh?: number[];
   panelConfigs?: PanelConfig[];
   panelCapacityWatts?: number;
+  // Dual-source estimates
+  pvwattsAnnualKwh?: number;
+  googleAnnualKwh?: number;
+  productionConfidence?: 'high' | 'medium' | 'low';
+  // PVWatts extended outputs
+  capacityFactor?: number;
+  dcAnnualKwh?: number;
+  dcMonthlyKwh?: number[];
+  poaMonthly?: number[];
+  solradAnnual?: number;
 }
 
 export interface SavingsData {
   offsetPercent: number;
   annualSavings: number;
   utilityRatePerKwh: number;
+  utilityName?: string;
   stateAbbr: string;
   annualConsumptionKwh: number;
   isStateAverage: boolean;
+  isStreetLevelRate?: boolean;
 }
 
 export interface CostData {
@@ -108,6 +130,27 @@ export interface PaybackData {
   netCostAfterITC: number;
 }
 
+export interface FluxMapData {
+  annualFluxUrl: string;
+  monthlyFluxUrl?: string;
+  maskUrl?: string;
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+}
+
+export interface ReOptData {
+  optimalSystemKw: number;
+  optimalBatteryKwh?: number;
+  npvDollars: number;
+  irrPercent: number;
+  paybackYears: number;
+  lcoePerKwh: number;
+}
+
 export interface Assessment {
   address: string;
   roof: RoofData;
@@ -121,4 +164,6 @@ export interface Assessment {
   warnings?: string[];
   roofImageUrl?: string;
   googleFinancial?: GoogleFinancialSummary;
+  fluxMap?: FluxMapData;
+  reopt?: ReOptData;
 }
