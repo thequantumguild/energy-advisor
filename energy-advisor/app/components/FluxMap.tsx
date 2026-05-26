@@ -31,47 +31,25 @@ function interpolateColor(t: number): [number, number, number] {
 
 type Status = 'idle' | 'loading' | 'done' | 'error';
 
-function InfoModal({ onClose }: { onClose: () => void }) {
+function InfoPopover({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <h3 className="text-base font-bold text-slate-900">What is the Solar Flux Map?</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none ml-4">✕</button>
-        </div>
-
-        <p className="text-sm text-slate-600 leading-relaxed">
-          The solar flux map shows how much solar energy reaches each square meter of your roof over the course of a year, measured in <strong>kWh per kWp</strong> (kilowatt-hours per kilowatt-peak of installed capacity).
-        </p>
-
-        <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 space-y-2 text-sm text-slate-600">
-          <p><strong>How it's made:</strong> Google's Solar API uses high-resolution satellite imagery combined with a 3D model of your roof and surrounding structures. It simulates the sun's path across the sky every hour of the year and calculates exactly how much light hits each point — accounting for pitch, orientation, and shadows cast by trees, chimneys, and neighboring buildings.</p>
-          <p><strong>What the colors mean:</strong> Yellow areas get the most sun. Purple/blue areas are shaded or north-facing. The scale shown below the map gives you the actual kWh/kWp range for your specific roof.</p>
-          <p><strong>Why it matters:</strong> Panels placed on the yellow areas will produce significantly more energy than panels on blue areas. A good installer will use this data to prioritize high-flux zones when laying out your system.</p>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
-          <div className="flex-1 h-2 rounded-full" style={{
-            background: 'linear-gradient(to right, rgb(68,1,84), rgb(59,82,139), rgb(33,145,140), rgb(94,201,98), rgb(253,231,37))'
-          }} />
-        </div>
-        <div className="flex justify-between text-xs text-slate-400 -mt-2">
-          <span>Low solar flux</span>
-          <span>High solar flux</span>
-        </div>
-
-        <a
-          href="https://developers.google.com/maps/documentation/solar/data-layers"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-blue-600 hover:underline block"
-        >
-          Source: Google Solar API — Data Layers →
-        </a>
+    <div
+      className="absolute top-8 left-0 z-50 w-72 bg-white border border-slate-200 rounded-xl shadow-lg p-3 space-y-2"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-slate-800">Solar Flux Map</span>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-sm leading-none">✕</button>
+      </div>
+      <p className="text-xs text-slate-600 leading-relaxed">
+        Shows solar energy per m² across your roof in <strong>kWh/kWp/yr</strong>. Yellow = most sun; purple = shaded or north-facing. Google models shadows hourly using satellite imagery + a 3D roof mesh.
+      </p>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-slate-400 whitespace-nowrap">Low</span>
+        <div className="flex-1 h-1.5 rounded-full" style={{
+          background: 'linear-gradient(to right, rgb(68,1,84), rgb(59,82,139), rgb(33,145,140), rgb(94,201,98), rgb(253,231,37))'
+        }} />
+        <span className="text-xs text-slate-400 whitespace-nowrap">High</span>
       </div>
     </div>
   );
@@ -159,21 +137,20 @@ export default function FluxMap({ lat, lng }: Props) {
   if (status === 'error') return null;
 
   return (
-    <>
-      {showModal && <InfoModal onClose={() => setShowModal(false)} />}
     <div className="mt-3 rounded-xl border border-slate-100 overflow-hidden">
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
-        <div className="flex items-center gap-1.5">
+        <div className="relative flex items-center gap-1.5">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
             Solar flux map
           </span>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => setShowModal(v => !v)}
             className="w-4 h-4 rounded-full bg-slate-200 hover:bg-blue-100 text-slate-500 hover:text-blue-600 text-xs font-bold flex items-center justify-center transition-colors"
             title="What is this?"
           >
             ?
           </button>
+          {showModal && <InfoPopover onClose={() => setShowModal(false)} />}
         </div>
         {status === 'loading' && (
           <span className="text-xs text-slate-400 flex items-center gap-1.5">
@@ -188,11 +165,11 @@ export default function FluxMap({ lat, lng }: Props) {
         )}
       </div>
 
-      <div className="relative bg-slate-100 mx-4 mb-3 rounded-lg overflow-hidden" style={{ minHeight: 120 }}>
+      <div className="relative bg-slate-100 mx-4 mb-3 rounded-lg overflow-hidden" style={{ height: 140 }}>
         <canvas
           ref={canvasRef}
-          className="w-full h-auto block"
-          style={{ imageRendering: 'pixelated', display: status === 'done' ? 'block' : 'none' }}
+          className="absolute inset-0 w-full h-full"
+          style={{ imageRendering: 'pixelated', objectFit: 'cover', display: status === 'done' ? 'block' : 'none' }}
         />
         {status === 'loading' && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -215,6 +192,5 @@ export default function FluxMap({ lat, lng }: Props) {
         </div>
       )}
     </div>
-    </>
   );
 }
