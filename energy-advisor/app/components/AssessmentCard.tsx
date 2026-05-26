@@ -294,11 +294,33 @@ function ProductionSection({
     : `Enough to power ${homes} average US homes per year`;
 
   const hasDual = production.pvwattsAnnualKwh != null && production.googleAnnualKwh != null;
-  const confidenceColor = {
+  const conf = production.productionConfidence;
+  const confidenceBadge = {
     high:   'bg-green-100 text-green-700',
     medium: 'bg-amber-100 text-amber-700',
     low:    'bg-red-100 text-red-700',
-  }[production.productionConfidence ?? 'medium'] ?? 'bg-slate-100 text-slate-600';
+  }[conf ?? 'medium'] ?? 'bg-slate-100 text-slate-600';
+
+  const lo = hasDual ? Math.min(production.pvwattsAnnualKwh!, production.googleAnnualKwh!) : null;
+  const hi = hasDual ? Math.max(production.pvwattsAnnualKwh!, production.googleAnnualKwh!) : null;
+
+  const dualExplainer = hasDual ? (() => {
+    if (conf === 'high') return {
+      headline: 'Both models agree — strong estimate.',
+      body: `Two independent methods — NREL's weather simulation and Google's satellite roof model — came within 10% of each other. That agreement is a good sign. Your realistic annual output is around ${formatNumber(production.annualKwh)} kWh.`,
+      action: null,
+    };
+    if (conf === 'medium') return {
+      headline: 'Minor divergence — normal range.',
+      body: `The two models differ by 10–20%, which is common. NREL uses historical weather patterns; Google models the actual shadows on your roof from satellite imagery. Your realistic range is ${formatNumber(lo!)}–${formatNumber(hi!)} kWh/yr. Plan around the middle.`,
+      action: null,
+    };
+    return {
+      headline: 'The models disagree — here\'s what that means for you.',
+      body: `NREL's weather model projects ${formatNumber(production.pvwattsAnnualKwh!)} kWh using regional climate data. Google's satellite model sees ${formatNumber(production.googleAnnualKwh!)} kWh after mapping actual shadows on your roof. A gap this large almost always means shading — trees, chimneys, or neighboring structures — that the weather model doesn't account for.`,
+      action: `Use ${formatNumber(lo!)}–${formatNumber(hi!)} kWh/yr as your planning range. Ask any installer for a shade report (Solmetric SunEye or similar) before signing a contract — it takes 20 minutes and closes this gap.`,
+    };
+  })() : null;
 
   return (
     <Card className="md:col-span-2">
@@ -326,19 +348,21 @@ function ProductionSection({
       </div>
 
       {/* Dual source comparison */}
-      {hasDual && (
-        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <div className="grid grid-cols-2 gap-4 mb-3">
+      {hasDual && dualExplainer && (
+        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-4">
+
+          {/* Two numbers side by side */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-slate-400 mb-1">NREL PVWatts V8</p>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">NREL PVWatts V8</p>
               <p className="text-xl font-bold text-blue-700">
                 {formatNumber(production.pvwattsAnnualKwh!)}
                 <span className="text-sm font-normal text-blue-400 ml-1">kWh/yr</span>
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">Weather simulation (TMY)</p>
+              <p className="text-xs text-slate-400 mt-0.5">30-yr historical weather (TMY)</p>
             </div>
             <div className="border-l border-slate-200 pl-4">
-              <p className="text-xs text-slate-400 mb-1">Google Solar API</p>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Google Solar API</p>
               <p className="text-xl font-bold text-emerald-700">
                 {formatNumber(production.googleAnnualKwh!)}
                 <span className="text-sm font-normal text-emerald-400 ml-1">kWh/yr</span>
@@ -346,22 +370,25 @@ function ProductionSection({
               <p className="text-xs text-slate-400 mt-0.5">Satellite shadow modeling</p>
             </div>
           </div>
-          {production.productionConfidence && (
-            <div className="flex items-center gap-2">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${confidenceColor}`}>
-                {production.productionConfidence === 'high' ? '● High confidence'
-                  : production.productionConfidence === 'medium' ? '◑ Medium confidence'
-                  : '○ Low confidence'}
-              </span>
-              <span className="text-xs text-slate-400">
-                {production.productionConfidence === 'high'
-                  ? 'Both models agree within 10%'
-                  : production.productionConfidence === 'medium'
-                  ? 'Models diverge 10–20% — use the range as your estimate'
-                  : 'Models diverge >20% — roof geometry or shading may be unusual'}
-              </span>
-            </div>
-          )}
+
+          {/* Confidence badge */}
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${confidenceBadge}`}>
+              {conf === 'high' ? '● High confidence' : conf === 'medium' ? '◑ Medium confidence' : '○ Low confidence'}
+            </span>
+          </div>
+
+          {/* What does this mean */}
+          <div className="border-t border-slate-200 pt-3 space-y-2">
+            <p className="text-xs font-semibold text-slate-700">{dualExplainer.headline}</p>
+            <p className="text-xs text-slate-500 leading-relaxed">{dualExplainer.body}</p>
+            {dualExplainer.action && (
+              <div className="mt-2 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2">
+                <p className="text-xs text-amber-800 leading-relaxed"><strong>What to do:</strong> {dualExplainer.action}</p>
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 
