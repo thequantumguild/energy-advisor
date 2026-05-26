@@ -11,9 +11,10 @@ import RoofHistogram from './RoofHistogram';
 
 interface Props {
   assessment: Assessment;
+  onLocationRefine?: (lat: number, lng: number) => void;
 }
 
-export default function AssessmentCard({ assessment }: Props) {
+export default function AssessmentCard({ assessment, onLocationRefine }: Props) {
   const { roof, production, savings, cost, incentives, payback } = assessment;
 
   return (
@@ -36,7 +37,7 @@ export default function AssessmentCard({ assessment }: Props) {
       ))}
 
       {/* Roof — full width with interactive map */}
-      <RoofSection roof={roof} roofImageUrl={assessment.roofImageUrl} />
+      <RoofSection roof={roof} roofImageUrl={assessment.roofImageUrl} onLocationRefine={onLocationRefine} />
 
       {/* 2-column grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -135,7 +136,7 @@ function WarningIcon() {
 
 // ── Section 1: Your Roof ─────────────────────────────────────────────────────
 
-function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofImageUrl?: string }) {
+function RoofSection({ roof, roofImageUrl, onLocationRefine }: { roof: Assessment['roof']; roofImageUrl?: string; onLocationRefine?: (lat: number, lng: number) => void }) {
   const [imgFailed, setImgFailed] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
 
@@ -168,6 +169,7 @@ function RoofSection({ roof, roofImageUrl }: { roof: Assessment['roof']; roofIma
             centerLng={roof.lng}
             segments={roof.roofSegments!}
             onError={() => setMapFailed(true)}
+            onLocationRefine={onLocationRefine}
           />
         </div>
       ) : roofImageUrl && !imgFailed ? (

@@ -39,23 +39,31 @@ interface Props {
   centerLng: number;
   segments: RoofSegment[];
   onError?: () => void;
+  onLocationRefine?: (lat: number, lng: number) => void;
 }
 
-export default function SolarMap({ centerLat, centerLng, segments, onError }: Props) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
+export default function SolarMap({ centerLat, centerLng, segments, onError, onLocationRefine }: Props) {
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const markerRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const clickListenerRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
 
+  const [ready, setReady] = useState(false);
+  const [refineMode, setRefineMode] = useState(false);
+  const [pendingPin, setPendingPin] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Initialize map
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) { onError?.(); return; }
 
     loadGoogleMaps(apiKey)
       .then(() => {
-        if (!mapRef.current) return;
+        if (!mapDivRef.current) return;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const G = (window as any).google.maps;
 
-        const map = new G.Map(mapRef.current, {
+        const map = new G.Map(mapDivRef.current, {
           center: { lat: centerLat, lng: centerLng },
           zoom: 20,
           mapTypeId: 'satellite',
@@ -67,6 +75,8 @@ export default function SolarMap({ centerLat, centerLng, segments, onError }: Pr
           rotateControl: false,
           scaleControl: true,
         });
+
+        mapInstanceRef.current = map;
 
         const openWindows: { close: () => void }[] = [];
 
@@ -121,36 +131,138 @@ export default function SolarMap({ centerLat, centerLng, segments, onError }: Pr
         setReady(true);
       })
       .catch(() => onError?.());
-  }, [centerLat, centerLng, segments, onError]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerLat, centerLng, segments]);
+
+  // Refine mode: click-to-pin
+  useEffect(() => {
+    if (!ready) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const G = (window as any).google?.maps;
+    const map = mapInstanceRef.current;
+    if (!G || !map) return;
+
+    if (refineMode) {
+      map.setOptions({ draggableCursor: 'crosshair' });
+
+      clickListenerRef.current = map.addListener('click', (e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+        const lat: number = e.latLng.lat();
+        const lng: number = e.latLng.lng();
+        setPendingPin({ lat, lng });
+
+        if (markerRef.current) {
+          markerRef.current.setPosition({ lat, lng });
+        } else {
+          markerRef.current = new G.Marker({
+            position: { lat, lng },
+            map,
+            draggable: true,
+            animation: G.Animation.DROP,
+            title: 'My roof',
+          });
+          markerRef.current.addListener('dragend', (ev: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            setPendingPin({ lat: ev.latLng.lat(), lng: ev.latLng.lng() });
+          });
+        }
+      });
+    } else {
+      if (clickListenerRef.current) {
+        G.event.removeListener(clickListenerRef.current);
+        clickListenerRef.current = null;
+      }
+      map.setOptions({ draggableCursor: undefined });
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+        markerRef.current = null;
+      }
+      setPendingPin(null);
+    }
+  }, [refineMode, ready]);
+
+  function cancelRefine() {
+    setRefineMode(false);
+    setPendingPin(null);
+  }
+
+  function confirmRefine() {
+    if (!pendingPin) return;
+    setRefineMode(false);
+    setPendingPin(null);
+    onLocationRefine?.(pendingPin.lat, pendingPin.lng);
+  }
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-slate-100">
-      <div ref={mapRef} style={{ width: '100%', height: 288 }} />
+    <div className="rounded-xl overflow-hidden border border-slate-100">
+      <div className="relative">
+        <div ref={mapDivRef} style={{ width: '100%', height: 288 }} />
 
-      {!ready && (
-        <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="absolute bottom-3 right-3 bg-slate-900/85 backdrop-blur-sm rounded-lg px-3 py-2 space-y-1">
-        {[
-          { color: '#22c55e', label: 'Excellent 1700+' },
-          { color: '#f59e0b', label: 'Good 1400–1700' },
-          { color: '#f97316', label: 'Moderate 1100–1400' },
-          { color: '#ef4444', label: 'Limited < 1100' },
-        ].map(({ color, label }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
-            <span className="text-slate-200 text-xs">{label}</span>
+        {!ready && (
+          <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
-        ))}
+        )}
+
+        {/* Legend */}
+        <div className="absolute bottom-3 right-3 bg-slate-900/85 backdrop-blur-sm rounded-lg px-3 py-2 space-y-1">
+          {[
+            { color: '#22c55e', label: 'Excellent 1700+' },
+            { color: '#f59e0b', label: 'Good 1400–1700' },
+            { color: '#f97316', label: 'Moderate 1100–1400' },
+            { color: '#ef4444', label: 'Limited < 1100' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+              <span className="text-slate-200 text-xs">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Refine mode overlay instruction */}
+        {refineMode && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg">
+            Click your roof on the map
+          </div>
+        )}
       </div>
 
-      <p className="text-xs text-slate-400 text-center py-1.5 bg-slate-50 border-t border-slate-100">
-        Click roof segments to see solar potential · Google Solar API
-      </p>
+      {/* Footer bar */}
+      <div className="bg-slate-50 border-t border-slate-100 px-3 py-2 flex items-center justify-between gap-2">
+        <p className="text-xs text-slate-400">
+          {refineMode
+            ? pendingPin
+              ? 'Drag the pin to fine-tune, then click Analyze'
+              : 'Click your roof to place a pin'
+            : 'Click roof segments to see solar potential · Google Solar API'}
+        </p>
+
+        {onLocationRefine && ready && !refineMode && (
+          <button
+            onClick={() => setRefineMode(true)}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap transition-colors"
+          >
+            Pin my roof →
+          </button>
+        )}
+
+        {refineMode && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={cancelRefine}
+              className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              Cancel
+            </button>
+            {pendingPin && (
+              <button
+                onClick={confirmRefine}
+                className="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-full transition-colors"
+              >
+                Analyze this roof
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

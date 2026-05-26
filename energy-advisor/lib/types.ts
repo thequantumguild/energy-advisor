@@ -3,6 +3,8 @@ export interface AssessmentRequest {
   monthlyBill?: number;
   hasHighLoads?: 'yes' | 'no' | 'not_sure';
   shadingOverride?: 'yes' | 'partially' | 'lots';
+  lat?: number;
+  lng?: number;
 }
 
 export interface RoofSegment {

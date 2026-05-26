@@ -22,7 +22,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body: AssessmentRequest = await request.json();
-    const { address, monthlyBill, hasHighLoads, shadingOverride } = body;
+    const { address, monthlyBill, hasHighLoads, shadingOverride, lat: overrideLat, lng: overrideLng } = body;
 
     if (!address?.trim()) {
       return NextResponse.json(
@@ -59,8 +59,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 2: Fire API calls in parallel ───────────────────────────────────
+    const solarLat = overrideLat ?? lat;
+    const solarLng = overrideLng ?? lng;
     const [solarData, eiaRate] = await Promise.all([
-      fetchSolarData(lat, lng),
+      fetchSolarData(solarLat, solarLng),
       fetchEIARate(stateAbbr),
     ]);
 

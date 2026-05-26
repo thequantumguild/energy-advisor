@@ -44,6 +44,20 @@ export default function Home() {
     }
   }
 
+  async function handleLocationRefine(lat: number, lng: number) {
+    setIsRefining(true);
+    setError(null);
+    try {
+      const result = await runAssessment({ address, lat, lng });
+      setAssessment(result);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsRefining(false);
+    }
+  }
+
   async function handleSharpen(values: {
     monthlyBill?: number;
     hasHighLoads?: 'yes' | 'no' | 'not_sure';
@@ -114,7 +128,7 @@ export default function Home() {
                 {error}
               </div>
             )}
-            <AssessmentCard assessment={assessment} />
+            <AssessmentCard assessment={assessment} onLocationRefine={handleLocationRefine} />
 
             <div className="max-w-4xl mx-auto pt-6 border-t border-slate-200">
               <SharpenForm onSubmit={handleSharpen} isLoading={isRefining} />
