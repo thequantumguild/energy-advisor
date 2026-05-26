@@ -40,13 +40,15 @@ interface Props {
   segments: RoofSegment[];
   onError?: () => void;
   onLocationRefine?: (lat: number, lng: number) => void;
+  activeSegmentIndices?: number[];
 }
 
-export default function SolarMap({ centerLat, centerLng, segments, onError, onLocationRefine }: Props) {
+export default function SolarMap({ centerLat, centerLng, segments, onError, onLocationRefine, activeSegmentIndices }: Props) {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const markerRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const clickListenerRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const circlesRef = useRef<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const [ready, setReady] = useState(false);
   const [refineMode, setRefineMode] = useState(false);
@@ -80,7 +82,7 @@ export default function SolarMap({ centerLat, centerLng, segments, onError, onLo
 
         const openWindows: { close: () => void }[] = [];
 
-        segments.forEach(seg => {
+        segments.forEach((seg, segIdx) => {
           const fill = segmentFill(seg.sunshineHoursMedian);
           const label = segmentLabel(seg.sunshineHoursMedian);
 
@@ -95,6 +97,7 @@ export default function SolarMap({ centerLat, centerLng, segments, onError, onLo
             radius: 4,
             clickable: true,
           });
+          circlesRef.current[segIdx] = circle;
 
           const info = new G.InfoWindow({
             content: `
@@ -133,6 +136,20 @@ export default function SolarMap({ centerLat, centerLng, segments, onError, onLo
       .catch(() => onError?.());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [centerLat, centerLng, segments]);
+
+  // Highlight active segments when panel slider changes
+  useEffect(() => {
+    if (!ready || circlesRef.current.length === 0) return;
+    circlesRef.current.forEach((circle, i) => {
+      if (!circle) return;
+      const isActive = activeSegmentIndices == null || activeSegmentIndices.includes(i);
+      circle.setOptions({
+        radius:       isActive ? 6 : 3,
+        fillOpacity:  isActive ? 0.95 : 0.35,
+        strokeWeight: isActive ? 3 : 1,
+      });
+    });
+  }, [activeSegmentIndices, ready]);
 
   // Refine mode: click-to-pin
   useEffect(() => {

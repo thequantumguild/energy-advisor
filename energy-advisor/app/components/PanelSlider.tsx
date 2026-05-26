@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { PanelConfig } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -8,9 +8,10 @@ interface Props {
   panelConfigs: PanelConfig[];
   panelCapacityWatts: number;
   utilityRate: number;
+  onActiveSegments?: (indices: number[]) => void;
 }
 
-export default function PanelSlider({ panelConfigs, panelCapacityWatts, utilityRate }: Props) {
+export default function PanelSlider({ panelConfigs, panelCapacityWatts, utilityRate, onActiveSegments }: Props) {
   const sorted = useMemo(
     () => [...panelConfigs].sort((a, b) => a.panelsCount - b.panelsCount),
     [panelConfigs]
@@ -27,6 +28,17 @@ export default function PanelSlider({ panelConfigs, panelCapacityWatts, utilityR
   const annualSavings = annualAcKwh * utilityRate;
   const costLow = systemKw * 2700;
   const costHigh = systemKw * 3500;
+
+  // Notify parent which segments are active for this config
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (!onActiveSegments || !cfg.segmentSummaries) return;
+    const indices = cfg.segmentSummaries
+      .filter(s => s.panelsCount > 0)
+      .map(s => s.segmentIndex);
+    onActiveSegments(indices);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx]);
 
   return (
     <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 space-y-3">
@@ -55,6 +67,12 @@ export default function PanelSlider({ panelConfigs, panelCapacityWatts, utilityR
         <Stat label="Est. annual savings" value={formatCurrency(annualSavings)} />
         <Stat label="Install cost range" value={`${formatCurrency(costLow)}–${formatCurrency(costHigh)}`} />
       </div>
+
+      {cfg.segmentSummaries && cfg.segmentSummaries.length > 0 && (
+        <div className="pt-1 text-xs text-slate-400">
+          Active roof segments: {cfg.segmentSummaries.filter(s => s.panelsCount > 0).map(s => s.segmentIndex + 1).join(', ')}
+        </div>
+      )}
     </div>
   );
 }
