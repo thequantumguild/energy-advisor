@@ -497,7 +497,7 @@ async function fetchPVWatts(
   tilt: number
 ): Promise<PVWattsResult | null> {
   const key = process.env.NREL_API_KEY;
-  if (!key) return null;
+  if (!key) { console.error('[pvwatts] NREL_API_KEY is not set'); return null; }
   try {
     const params = new URLSearchParams({
       api_key: key,
@@ -511,8 +511,13 @@ async function fetchPVWatts(
       losses: '14',
     });
     const res = await fetch(`https://developer.nrel.gov/api/pvwatts/v8.json?${params}`);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`[pvwatts] ${res.status}: ${body.slice(0, 200)}`);
+      return null;
+    }
     const data = await res.json();
+    if (data.errors?.length) { console.error('[pvwatts] API errors:', data.errors); return null; }
     const o = data.outputs;
     if (o?.ac_annual == null) return null;
     return {
@@ -524,7 +529,8 @@ async function fetchPVWatts(
       solradAnnual:  o.solrad_annual as number | undefined,
       capacityFactor: o.capacity_factor as number | undefined,
     };
-  } catch {
+  } catch (err) {
+    console.error('[pvwatts] fetch threw:', err);
     return null;
   }
 }
@@ -533,22 +539,26 @@ async function fetchPVWatts(
 
 async function fetchNRELUtilityRate(lat: number, lng: number): Promise<{ rate: number; utilityName: string } | null> {
   const key = process.env.NREL_API_KEY;
-  if (!key) return null;
+  if (!key) { console.error('[nrel-rates] NREL_API_KEY is not set'); return null; }
   try {
     const params = new URLSearchParams({ api_key: key, lat: lat.toString(), lon: lng.toString() });
     const res = await fetch(
       `https://developer.nrel.gov/api/utility_rates/v3.json?${params}`,
       { next: { revalidate: 86400 } }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[nrel-rates] ${res.status}`);
+      return null;
+    }
     const data = await res.json();
     const rate = data?.outputs?.residential;
-    if (rate == null) return null;
+    if (rate == null) { console.error('[nrel-rates] no residential rate in response'); return null; }
     return {
       rate: parseFloat(rate),
       utilityName: data?.outputs?.utility_name ?? '',
     };
-  } catch {
+  } catch (err) {
+    console.error('[nrel-rates] fetch threw:', err);
     return null;
   }
 }
