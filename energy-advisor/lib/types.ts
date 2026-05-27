@@ -5,6 +5,12 @@ export interface AssessmentRequest {
   shadingOverride?: 'yes' | 'partially' | 'lots';
   lat?: number;
   lng?: number;
+  // Expanded sharpen fields
+  electricLoads?: string[];          // 'ev' | 'pool' | 'heat_pump' | 'elec_water' | 'gas_mainly'
+  stayYears?: '<5' | '5-10' | '10+';
+  roofAge?: 'new' | 'good' | 'aging' | 'unknown';
+  batteryInterest?: 'yes' | 'maybe' | 'no';
+  paymentPreference?: 'cash' | 'loan' | 'lease_ppa' | 'unsure';
 }
 
 export interface PanelSegmentSummary {

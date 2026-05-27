@@ -203,12 +203,11 @@ export default function DownloadPDFButton({ assessment }: { assessment: Assessme
   const filename = `solar-assessment-${assessment.address.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40)}.pdf`;
 
   return (
-    <PDFDownloadLink document={<AssessmentPDFDoc a={assessment} />} fileName={filename}>
+    <PDFDownloadLink document={<AssessmentPDFDoc a={assessment} />} fileName={filename}
+      className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors"
+    >
       {({ loading }) => (
-        <button
-          className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors"
-          disabled={loading}
-        >
+        <>
           {loading ? (
             <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
           ) : (
@@ -216,8 +215,8 @@ export default function DownloadPDFButton({ assessment }: { assessment: Assessme
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
           )}
-          {loading ? 'Building report…' : 'Download Report'}
-        </button>
+          <span>{loading ? 'Building…' : 'Download Report'}</span>
+        </>
       )}
     </PDFDownloadLink>
   );

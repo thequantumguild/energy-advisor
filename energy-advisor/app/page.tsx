@@ -78,8 +78,12 @@ export default function Home() {
 
   async function handleSharpen(values: {
     monthlyBill?: number;
-    hasHighLoads?: 'yes' | 'no' | 'not_sure';
     shadingOverride?: 'yes' | 'partially' | 'lots';
+    electricLoads?: string[];
+    stayYears?: '<5' | '5-10' | '10+';
+    roofAge?: 'new' | 'good' | 'aging' | 'unknown';
+    batteryInterest?: 'yes' | 'maybe' | 'no';
+    paymentPreference?: 'cash' | 'loan' | 'lease_ppa' | 'unsure';
   }) {
     setIsRefining(true);
     setError(null);
@@ -106,21 +110,21 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200">
+      <header className="sticky top-0 z-10 bg-slate-950 border-b border-slate-800">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <button
             onClick={handleReset}
-            className="flex items-center gap-2 text-slate-900 hover:text-blue-600 transition-colors"
+            className="flex items-center gap-2 text-white hover:text-amber-400 transition-colors"
           >
             <SunIcon className="w-5 h-5 text-amber-400" />
             <span className="font-bold text-base tracking-tight">Energy Advocate</span>
           </button>
           <div className="flex items-center gap-4">
-            <a href="/tools" className="text-sm text-slate-500 hover:text-blue-600 transition-colors font-medium">
+            <a href="/tools" className="text-sm text-slate-400 hover:text-amber-400 transition-colors font-medium">
               Quote & Contract Tools
             </a>
             {phase === 'result' && (
-              <button onClick={handleReset} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+              <button onClick={handleReset} className="text-sm text-slate-400 hover:text-white transition-colors">
                 New assessment
               </button>
             )}
@@ -129,7 +133,7 @@ export default function Home() {
       </header>
 
       {/* Main */}
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-12 sm:py-16">
+      <main className={`flex-1 w-full ${phase !== 'input' ? 'max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16' : ''}`}>
         {phase === 'input' && (
           <>
             <AddressInput onSubmit={handleAddressSubmit} />

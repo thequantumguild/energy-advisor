@@ -18,8 +18,12 @@ const DownloadPDFButton = dynamic(() => import('./AssessmentPDF'), { ssr: false 
 
 interface SharpenValues {
   monthlyBill?: number;
-  hasHighLoads?: 'yes' | 'no' | 'not_sure';
   shadingOverride?: 'yes' | 'partially' | 'lots';
+  electricLoads?: string[];
+  stayYears?: '<5' | '5-10' | '10+';
+  roofAge?: 'new' | 'good' | 'aging' | 'unknown';
+  batteryInterest?: 'yes' | 'maybe' | 'no';
+  paymentPreference?: 'cash' | 'loan' | 'lease_ppa' | 'unsure';
 }
 
 interface Props {
@@ -63,8 +67,45 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessment.generatedAt]);
 
+  const avgPayback = (payback.lowYears + payback.highYears) / 2;
+  const verdict = (() => {
+    const shadingPenalty = roof.shadingScore === 'significant';
+    if (avgPayback <= 8 && !shadingPenalty) return {
+      level: 'strong' as const,
+      headline: 'Solar looks like a strong fit for this home.',
+      detail: `Based on your roof and local rates, you'd likely break even in ${payback.lowYears}–${payback.highYears} years and save an estimated ${formatCurrency(savings.annualSavings)}/yr. That's a solid investment — now make sure you're getting a fair deal.`,
+    };
+    if (avgPayback <= 12) return {
+      level: 'moderate' as const,
+      headline: 'Solar is worth exploring — the numbers are decent.',
+      detail: `Payback is estimated at ${payback.lowYears}–${payback.highYears} years. That's workable for most homeowners staying 10+ years. Your utility rate and system size are the key levers — refine your numbers below to tighten the picture.`,
+    };
+    return {
+      level: 'caution' as const,
+      headline: 'Proceed carefully — the numbers need to work for you.',
+      detail: `The estimated payback at ${payback.lowYears}–${payback.highYears} years is on the longer end. ${shadingPenalty ? 'Significant shading on your roof is a major factor. ' : ''}That doesn't mean solar is wrong, but you need to understand every cost and incentive before committing.`,
+    };
+  })();
+
+  const verdictStyle = {
+    strong:   { bg: 'bg-emerald-950', border: 'border-emerald-800', dot: 'bg-emerald-400', text: 'text-emerald-400', detail: 'text-emerald-200/70' },
+    moderate: { bg: 'bg-amber-950',   border: 'border-amber-800',   dot: 'bg-amber-400',   text: 'text-amber-400',   detail: 'text-amber-200/70' },
+    caution:  { bg: 'bg-slate-900',   border: 'border-slate-700',   dot: 'bg-slate-400',   text: 'text-slate-300',   detail: 'text-slate-400' },
+  }[verdict.level];
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4 animate-fade-up">
+
+      {/* Verdict banner */}
+      <div className={`rounded-2xl border px-6 py-5 ${verdictStyle.bg} ${verdictStyle.border}`}>
+        <div className="flex items-start gap-3">
+          <span className={`mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${verdictStyle.dot}`} />
+          <div>
+            <p className={`text-base font-bold mb-1 ${verdictStyle.text}`}>{verdict.headline}</p>
+            <p className={`text-sm leading-relaxed ${verdictStyle.detail}`}>{verdict.detail}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Address banner + actions */}
       <div className="flex items-start justify-between gap-4 px-1">
@@ -466,19 +507,22 @@ function ProductionSection({
       {hasDual && dualExplainer && (
         <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-4">
 
-          {/* Two numbers side by side */}
+          {/* Two numbers side by side — Google primary (right), NREL secondary (left) */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs font-medium text-slate-400 mb-0.5">NREL PVWatts V8</p>
-              <p className="text-xl font-bold text-blue-700">
+              <p className="text-lg font-bold text-blue-600">
                 {formatNumber(production.pvwattsAnnualKwh!)}
                 <span className="text-sm font-normal text-blue-400 ml-1">kWh/yr</span>
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">30-yr historical weather (TMY)</p>
+              <p className="text-xs text-slate-400 mt-0.5">30-yr weather simulation</p>
             </div>
-            <div className="border-l border-slate-200 pl-4">
-              <p className="text-xs font-medium text-slate-400 mb-0.5">Google Solar API</p>
-              <p className="text-xl font-bold text-emerald-700">
+            <div className="border-l-2 border-emerald-200 pl-4">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <p className="text-xs font-medium text-slate-500">Google Solar API</p>
+                <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-1.5 py-0.5 rounded-full">Primary</span>
+              </div>
+              <p className="text-2xl font-bold text-emerald-700">
                 {formatNumber(production.googleAnnualKwh!)}
                 <span className="text-sm font-normal text-emerald-400 ml-1">kWh/yr</span>
               </p>

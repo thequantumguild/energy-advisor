@@ -24,7 +24,11 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body: AssessmentRequest = await request.json();
-    const { address, monthlyBill, hasHighLoads, shadingOverride, lat: overrideLat, lng: overrideLng } = body;
+    const {
+      address, monthlyBill, hasHighLoads, shadingOverride,
+      lat: overrideLat, lng: overrideLng,
+      electricLoads, stayYears, roofAge, batteryInterest, paymentPreference,
+    } = body;
 
     if (!address?.trim()) {
       return NextResponse.json({ error: 'Address is required' }, { status: 400 });
@@ -268,6 +272,29 @@ export async function POST(request: NextRequest) {
       isStateAverage = false;
     }
     annualConsumptionKwh *= consumptionFactor;
+
+    // Adjust for known high loads from refinement form
+    if (electricLoads?.includes('ev'))         annualConsumptionKwh += 3500;
+    if (electricLoads?.includes('pool'))        annualConsumptionKwh += 2000;
+    if (electricLoads?.includes('heat_pump'))   annualConsumptionKwh += 2500;
+    if (electricLoads?.includes('elec_water'))  annualConsumptionKwh += 1200;
+
+    // Flags from refinement
+    if (stayYears === '<5') {
+      const avgPayback = Math.round((systemCapacityKw * 1000 * (COST_PER_WATT_LOW + COST_PER_WATT_HIGH) / 2) / ((annualConsumptionKwh * Math.min(annualKwh, annualConsumptionKwh) / annualConsumptionKwh) * utilityRate));
+      if (avgPayback > 5) {
+        warnings.push(`You mentioned planning to move within 5 years. The estimated payback period is longer — solar adds value when you sell, but confirm with a real estate professional in your market.`);
+      }
+    }
+    if (roofAge === 'aging') {
+      warnings.push('Your roof may be over 15 years old. Most installers require a roof in good condition before installing panels — get a roofer\'s assessment first to avoid paying twice.');
+    }
+    if (batteryInterest === 'yes' || batteryInterest === 'maybe') {
+      warnings.push('You expressed interest in battery storage — see the NREL ReOpt optimization below for sizing and economics. The Section 25D residential storage credit may also apply.');
+    }
+    if (paymentPreference === 'lease_ppa') {
+      warnings.push('You\'re open to a lease or PPA. The tools section has a contract scanner to review terms before you sign — escalators and home-sale clauses are the details that matter most.');
+    }
 
     const usableKwh    = Math.min(annualKwh, annualConsumptionKwh);
     const annualSavings = usableKwh * utilityRate;
