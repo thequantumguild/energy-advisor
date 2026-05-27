@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type {
   Assessment, AssessmentRequest, StateIncentive,
   RoofSegment, PanelConfig, WholeRoofStats, GoogleFinancialSummary, FluxMapData,
+  AdderEstimate, SavingsProjection, YearlyProjectionPoint,
 } from '@/lib/types';
 import {
   azimuthToLabel,
@@ -65,11 +66,12 @@ export async function POST(request: NextRequest) {
     const solarLat = overrideLat ?? lat;
     const solarLng = overrideLng ?? lng;
 
-    const [solarData, eiaRate, nrelRateResult, dataLayers] = await Promise.all([
+    const [solarData, eiaRate, nrelRateResult, dataLayers, eiaCAGR] = await Promise.all([
       fetchSolarData(solarLat, solarLng),
       fetchEIARate(stateAbbr),
       fetchNRELUtilityRate(solarLat, solarLng),
       fetchDataLayers(solarLat, solarLng),
+      fetchEIAHistoricalCAGR(stateAbbr),
     ]);
 
     // ── Step 3: Extract roof data from Google Solar API ──────────────────────
@@ -410,6 +412,8 @@ export async function POST(request: NextRequest) {
       roofImageUrl: `/api/satellite?lat=${lat}&lng=${lng}`,
       googleFinancial,
       fluxMap,
+      projection: buildProjection(annualSavings, annualKwh, utilityRate, annualConsumptionKwh, eiaCAGR),
+      adders: buildAdders(systemCapacityKw, electricLoads, roofAge),
     };
 
     return NextResponse.json(assessment);
@@ -580,6 +584,117 @@ async function fetchNRELUtilityRate(lat: number, lng: number): Promise<{ rate: n
 }
 
 // ── EIA Electricity Retail Rate (state-level fallback) ───────────────────────
+
+async function fetchEIAHistoricalCAGR(stateAbbr: string): Promise<{ rate: number; source: 'eia_historical' | 'national_average' }> {
+  const key = process.env.EIA_API_KEY;
+  const NATIONAL_AVG = { rate: 0.027, source: 'national_average' as const };
+  if (!key || !stateAbbr) return NATIONAL_AVG;
+  try {
+    const url =
+      `https://api.eia.gov/v2/electricity/retail-sales/data/` +
+      `?api_key=${key}` +
+      `&frequency=annual&data[]=price` +
+      `&facets[sectorid][]=RES&facets[stateid][]=${stateAbbr}` +
+      `&sort[0][column]=period&sort[0][direction]=asc&length=12`;
+    const res = await fetch(url, { next: { revalidate: 86400 * 30 } });
+    if (!res.ok) return NATIONAL_AVG;
+    const data = await res.json();
+    const rows: { period: string; price: string }[] = data?.response?.data ?? [];
+    if (rows.length < 5) return NATIONAL_AVG;
+    const oldest = parseFloat(rows[0].price) / 100;
+    const newest = parseFloat(rows[rows.length - 1].price) / 100;
+    const years = rows.length - 1;
+    if (!oldest || !newest || oldest <= 0) return NATIONAL_AVG;
+    const cagr = Math.pow(newest / oldest, 1 / years) - 1;
+    return { rate: Math.max(0.01, Math.min(0.06, cagr)), source: 'eia_historical' };
+  } catch {
+    return NATIONAL_AVG;
+  }
+}
+
+function buildProjection(
+  annualSavings: number,
+  annualKwh: number,
+  utilityRate: number,
+  annualConsumptionKwh: number,
+  eia: { rate: number; source: 'eia_historical' | 'national_average' },
+): SavingsProjection {
+  const { rate: escalation, source } = eia;
+  const yearlyData: YearlyProjectionPoint[] = [];
+  let cumulative = 0;
+  const PANEL_DEGRADATION = 0.005; // 0.5%/yr
+
+  for (let yr = 1; yr <= 25; yr++) {
+    const rateThisYear = utilityRate * Math.pow(1 + escalation, yr);
+    const productionThisYear = annualKwh * Math.pow(1 - PANEL_DEGRADATION, yr - 1);
+    const selfConsumed = Math.min(productionThisYear, annualConsumptionKwh);
+    const annualBillWithout = annualConsumptionKwh * rateThisYear;
+    const annualBillWith = Math.max(0, (annualConsumptionKwh - selfConsumed) * rateThisYear);
+    const savings = annualBillWithout - annualBillWith;
+    cumulative += savings;
+    yearlyData.push({
+      year: yr,
+      monthlyBillWithout: Math.round(annualBillWithout / 12),
+      monthlyBillWith: Math.round(annualBillWith / 12),
+      annualSavings: Math.round(savings),
+      cumulativeSavings: Math.round(cumulative),
+    });
+  }
+
+  void annualSavings; // annualSavings is year-1, projection builds its own
+  return {
+    escalationRate: escalation,
+    escalationSource: source,
+    totalSavings25yr: Math.round(cumulative),
+    yearlyData,
+  };
+}
+
+function buildAdders(
+  systemCapacityKw: number,
+  electricLoads?: string[],
+  roofAge?: string,
+): AdderEstimate[] | undefined {
+  const adders: AdderEstimate[] = [];
+
+  // Main panel upgrade — likely needed for systems > 8 kW on older homes
+  if (systemCapacityKw > 8) {
+    adders.push({
+      type: 'panel_upgrade',
+      label: 'Main panel upgrade (MPU)',
+      lowEstimate: 1500,
+      highEstimate: 3500,
+      likelihood: 'possible',
+      note: `${systemCapacityKw} kW system may exceed 100A service capacity. Ask your installer to inspect your electrical panel — an upgrade is often required.`,
+    });
+  }
+
+  // Roof replacement — flagged if aging
+  if (roofAge === 'aging') {
+    adders.push({
+      type: 'roof_replacement',
+      label: 'Roof replacement (before install)',
+      lowEstimate: 8000,
+      highEstimate: 18000,
+      likelihood: 'likely',
+      note: 'Roofs over 15 years typically need replacement before solar installation. Installers will not warranty panels on a failing roof. Get a roofer quote first.',
+    });
+  }
+
+  // EV charger
+  if (electricLoads?.includes('ev')) {
+    adders.push({
+      type: 'ev_charger',
+      label: 'Level 2 EV charger install',
+      lowEstimate: 600,
+      highEstimate: 1400,
+      likelihood: 'likely',
+      note: 'Adding a 240V Level 2 charger while the electrician is already on-site for solar is cost-efficient. Covers EVSE hardware + install labor.',
+    });
+  }
+
+  return adders.length > 0 ? adders : undefined;
+}
 
 async function fetchEIARate(stateAbbr: string): Promise<number | null> {
   const key = process.env.EIA_API_KEY;

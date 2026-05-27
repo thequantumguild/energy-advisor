@@ -52,11 +52,19 @@ export default function AssessmentChat({ assessment }: { assessment: Assessment 
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors text-left"
       >
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-sm font-semibold text-slate-800">Ask a question about your assessment</span>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+            </svg>
+          </div>
+          <div>
+            <span className="text-sm font-bold text-slate-900">AI Solar Advisor</span>
+            <span className="ml-2 text-xs text-slate-400">Ask anything about your assessment</span>
+          </div>
+          <span className="ml-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Live</span>
         </div>
-        <svg className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
         </svg>
       </button>

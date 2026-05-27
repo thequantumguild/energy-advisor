@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import type { Assessment, StateIncentive, ReOptData } from '@/lib/types';
+import type { Assessment, StateIncentive, ReOptData, AdderEstimate, SavingsProjection } from '@/lib/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import SolarMap from './SolarMap';
 import SolarSegmentOverlay from './SolarSegmentOverlay';
@@ -119,7 +119,10 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
         </div>
       </div>
 
-      {/* Refine your numbers — collapsible top panel */}
+      {/* AI Solar Advisor — prominent, top position */}
+      <AssessmentChat assessment={assessment} />
+
+      {/* Refine your numbers — below chat */}
       {onSharpen && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <button
@@ -127,14 +130,14 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
             className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0z" />
+              <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
               </svg>
-              <span className="text-sm font-semibold text-slate-800">Refine your numbers</span>
-              <span className="text-xs text-slate-400">Upload your bill or answer a few questions for a tighter estimate</span>
+              <span className="text-sm font-semibold text-slate-800">Sharpen your estimate</span>
+              <span className="text-xs text-slate-400 hidden sm:inline">Answer a few questions for a more accurate picture</span>
             </div>
             <svg
-              className={`w-4 h-4 text-slate-400 transition-transform ${refineOpen ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${refineOpen ? 'rotate-180' : ''}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
@@ -149,9 +152,6 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
           )}
         </div>
       )}
-
-      {/* Ask about your assessment — top of page */}
-      <AssessmentChat assessment={assessment} />
 
       {/* Warnings */}
       {assessment.warnings?.map((w, i) => (
@@ -177,12 +177,13 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
           onActiveSegments={setActiveSegmentIndices}
         />
         <SavingsSection savings={savings} />
-        <CostSection cost={cost} />
+        <CostSection cost={cost} adders={assessment.adders} />
         {roof.carbonOffsetKgPerMwh && (
-          <CarbonSection
+          <ImpactSection
             annualKwh={production.annualKwh}
             carbonOffsetKgPerMwh={roof.carbonOffsetKgPerMwh}
             panelLifetimeYears={roof.panelLifetimeYears}
+            systemCapacityKw={production.systemCapacityKw}
           />
         )}
       </div>
@@ -190,6 +191,7 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
       {/* Full-width sections */}
       <IncentivesSection incentives={incentives} cost={cost} />
       <PaybackSection payback={payback} savings={savings} googleFinancial={assessment.googleFinancial} />
+      <ProjectionSection projection={assessment.projection} />
       <ReOptSection reopt={reopt} loading={reoptLoading} systemCapacityKw={production.systemCapacityKw} />
       <FlagsSection cost={cost} incentives={incentives} />
     </div>
@@ -302,13 +304,16 @@ function RoofSection({
       </div>
 
       {/* Side-by-side: Google map + Flux map */}
-      <div className={`grid gap-3 mb-5 ${hasMapContent ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-        {/* Left: Google satellite / interactive map */}
+      <div className={`grid gap-3 mb-5 ${hasMapContent && !mapExpanded ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+        {/* Google satellite / interactive map */}
         {hasMapContent && (
-          <div className="relative group cursor-pointer" onClick={() => setMapExpanded(true)}>
-            <div className="rounded-xl overflow-hidden border border-slate-100 h-48">
+          <div className="relative group">
+            <div
+              className={`rounded-xl overflow-hidden border border-slate-100 transition-all duration-300 ${mapExpanded ? 'h-96' : 'h-48 cursor-pointer'}`}
+              onClick={!mapExpanded ? () => setMapExpanded(true) : undefined}
+            >
               {useInteractiveMap ? (
-                <div className="pointer-events-none h-full">
+                <div className={`h-full ${mapExpanded ? '' : 'pointer-events-none'}`}>
                   <SolarMap
                     centerLat={roof.lat}
                     centerLng={roof.lng}
@@ -331,68 +336,46 @@ function RoofSection({
                   )}
                 </div>
               ) : null}
+
+              {/* Collapse button when expanded */}
+              {mapExpanded && (
+                <button
+                  onClick={() => setMapExpanded(false)}
+                  className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-white text-slate-700 text-xs font-medium px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
+                  </svg>
+                  Collapse
+                </button>
+              )}
             </div>
-            {/* Expand overlay */}
-            <div className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-slate-800 text-xs font-medium px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                </svg>
-                Expand map
-              </span>
-            </div>
+
+            {/* Expand hint on hover when collapsed */}
+            {!mapExpanded && (
+              <div className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none flex items-center justify-center">
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-slate-800 text-xs font-medium px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                  </svg>
+                  Expand map
+                </span>
+              </div>
+            )}
+
             <p className="text-xs text-slate-400 text-center mt-1.5">
               {hasSegments ? 'Google Solar — roof segments' : 'Google Maps — satellite'}
             </p>
           </div>
         )}
 
-        {/* Right: Solar flux heat map */}
-        <div>
-          <FluxMap lat={roof.lat} lng={roof.lng} compact />
-        </div>
-      </div>
-
-      {/* Expanded map modal */}
-      {mapExpanded && (
-        <div
-          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
-          onClick={() => setMapExpanded(false)}
-        >
-          <div
-            className="bg-white rounded-2xl overflow-hidden w-full max-w-3xl shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-              <p className="text-sm font-semibold text-slate-800">
-                {hasSegments ? 'Interactive roof segments — Google Solar API' : 'Satellite imagery — Google Maps'}
-              </p>
-              <button
-                onClick={() => setMapExpanded(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-500"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="h-[480px]">
-              {useInteractiveMap ? (
-                <SolarMap
-                  centerLat={roof.lat}
-                  centerLng={roof.lng}
-                  segments={roof.roofSegments!}
-                  onError={() => { setMapFailed(true); setMapExpanded(false); }}
-                  onLocationRefine={onLocationRefine}
-                  activeSegmentIndices={activeSegmentIndices}
-                />
-              ) : roofImageUrl && !imgFailed ? (
-                <img src={roofImageUrl} alt="Satellite view of property" className="w-full h-full object-cover" />
-              ) : null}
-            </div>
+        {/* Solar flux heat map — hide when map is expanded full-width */}
+        {!mapExpanded && (
+          <div>
+            <FluxMap lat={roof.lat} lng={roof.lng} compact />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Sunshine distribution */}
       {roof.wholeRoofStats?.sunshineQuantiles && (
@@ -626,67 +609,149 @@ function SavingsSection({ savings }: { savings: Assessment['savings'] }) {
 
 // ── Section 4: Cost Range ────────────────────────────────────────────────────
 
-function CostSection({ cost }: { cost: Assessment['cost'] }) {
+function CostSection({ cost, adders }: { cost: Assessment['cost']; adders?: AdderEstimate[] }) {
+  const adderLow  = adders?.reduce((s, a) => s + a.lowEstimate,  0) ?? 0;
+  const adderHigh = adders?.reduce((s, a) => s + a.highEstimate, 0) ?? 0;
+  const totalLow  = cost.lowEstimate  + adderLow;
+  const totalHigh = cost.highEstimate + adderHigh;
+  const hasAdders = adders && adders.length > 0;
+
   return (
-    <Card>
-      <SectionLabel>Cost Range</SectionLabel>
-      <p className="text-3xl font-bold text-slate-900 mb-1">
-        {formatCurrency(cost.lowEstimate)}
-        <span className="text-slate-400 font-medium mx-1">–</span>
-        {formatCurrency(cost.highEstimate)}
-      </p>
-      <p className="text-xs text-slate-500 mb-4">
-        ${cost.costPerWattLow.toFixed(2)}–${cost.costPerWattHigh.toFixed(2)} per watt · {cost.systemCapacityKw} kW system
-      </p>
-      <div className="pt-4 border-t border-slate-100 space-y-2">
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Based on LBNL 2024 national residential benchmark data. Before any incentives.
-        </p>
+    <Card className={hasAdders ? 'md:col-span-2' : ''}>
+      <SectionLabel>Cost Estimate</SectionLabel>
+
+      <div className={`${hasAdders ? 'grid grid-cols-1 sm:grid-cols-2 gap-6' : ''}`}>
+        {/* Base system */}
+        <div>
+          <p className="text-xs text-slate-400 mb-1">Base solar system</p>
+          <p className="text-3xl font-bold text-slate-900">
+            {formatCurrency(cost.lowEstimate)}
+            <span className="text-slate-400 font-medium mx-1">–</span>
+            {formatCurrency(cost.highEstimate)}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            ${cost.costPerWattLow.toFixed(2)}–${cost.costPerWattHigh.toFixed(2)}/W · {cost.systemCapacityKw} kW · LBNL 2024 benchmark
+          </p>
+        </div>
+
+        {/* Adders */}
+        {hasAdders && (
+          <div className="space-y-3 sm:border-l sm:border-slate-100 sm:pl-6">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Likely project adders</p>
+            {adders.map(a => (
+              <div key={a.type} className="flex gap-3">
+                <div className={`mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full ${a.likelihood === 'likely' ? 'bg-amber-400' : 'bg-slate-300'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-slate-700">{a.label}</p>
+                    <p className="text-sm font-semibold text-slate-800 whitespace-nowrap">
+                      +{formatCurrency(a.lowEstimate)}–{formatCurrency(a.highEstimate)}
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{a.note}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Total with adders */}
+      {hasAdders && (
+        <div className="mt-4 pt-4 border-t-2 border-slate-900 flex items-baseline justify-between">
+          <div>
+            <p className="text-sm font-bold text-slate-900">Total project estimate</p>
+            <p className="text-xs text-slate-400">System + all applicable adders</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-slate-900">
+              {formatCurrency(totalLow)}
+              <span className="text-slate-400 font-medium mx-1">–</span>
+              {formatCurrency(totalHigh)}
+            </p>
+            <p className="text-xs text-slate-400">Get itemized quotes — adders vary by home</p>
+          </div>
+        </div>
+      )}
+
+      <div className={`${hasAdders ? 'mt-4' : 'mt-4'} pt-3 border-t border-slate-100`}>
         <SourceLink href="https://emp.lbl.gov/tracking-the-sun" label="LBNL Tracking the Sun 2024" />
       </div>
     </Card>
   );
 }
 
-// ── Section 5: Carbon Offset ─────────────────────────────────────────────────
+// ── Section 5: Your Impact (collapsible) ────────────────────────────────────
 
-function CarbonSection({
-  annualKwh, carbonOffsetKgPerMwh, panelLifetimeYears,
+function ImpactSection({
+  annualKwh, carbonOffsetKgPerMwh, panelLifetimeYears, systemCapacityKw,
 }: {
   annualKwh: number;
   carbonOffsetKgPerMwh: number;
   panelLifetimeYears?: number;
+  systemCapacityKw: number;
 }) {
-  const annualCo2Kg    = Math.round((annualKwh / 1000) * carbonOffsetKgPerMwh);
-  const lifetimeCo2Kg  = panelLifetimeYears ? annualCo2Kg * panelLifetimeYears : null;
-  const treesEquivalent = Math.round(annualCo2Kg / 21.77);
-  const carsOffRoad    = (annualCo2Kg / 4600).toFixed(1);
+  const [open, setOpen] = useState(false);
+
+  const annualCo2Kg      = Math.round((annualKwh / 1000) * carbonOffsetKgPerMwh);
+  const lifetimeCo2Tons  = panelLifetimeYears ? Math.round((annualCo2Kg * panelLifetimeYears) / 1000) : null;
+  const trees            = Math.round(annualCo2Kg / 21.77);
+  const carsOffRoad      = (annualCo2Kg / 4600).toFixed(1);
+  const phoneCharges     = Math.round(annualKwh * 1000 / 0.012 / 1000); // ~12 Wh per charge, show in thousands
+  const evMiles          = Math.round(annualKwh / 0.25); // avg ~0.25 kWh/mile EV efficiency
+  const homesEquivalent  = (annualKwh / 10500).toFixed(1); // ~10,500 kWh/yr avg US home
+
+  const impacts = [
+    { icon: '🌳', stat: formatNumber(trees),       unit: 'trees', note: 'equivalent planted per year' },
+    { icon: '🚗', stat: carsOffRoad,               unit: 'cars',  note: 'off the road per year' },
+    { icon: '⚡', stat: formatNumber(phoneCharges) + 'K', unit: 'phone charges', note: 'generated per year' },
+    { icon: '🚙', stat: formatNumber(evMiles),      unit: 'EV miles', note: 'powered annually' },
+    { icon: '🏠', stat: homesEquivalent,            unit: 'homes', note: 'worth of electricity' },
+    ...(lifetimeCo2Tons ? [{ icon: '🌍', stat: String(lifetimeCo2Tons), unit: 'metric tons CO₂', note: `avoided over ${panelLifetimeYears}-yr panel life` }] : []),
+  ];
 
   return (
     <Card>
-      <SectionLabel>Carbon Offset</SectionLabel>
-      <p className="text-3xl font-bold text-emerald-600 mb-1">
-        {formatNumber(annualCo2Kg)}
-        <span className="text-lg font-medium text-emerald-400 ml-1">kg CO₂ / yr</span>
-      </p>
-      {lifetimeCo2Kg && (
-        <p className="text-xs text-slate-400 mb-4">
-          {formatNumber(Math.round(lifetimeCo2Kg / 1000))} metric tons over {panelLifetimeYears}-year panel life
-        </p>
+      <button
+        className="w-full flex items-center justify-between text-left"
+        onClick={() => setOpen(v => !v)}
+      >
+        <div>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Your Impact</p>
+          <p className="text-2xl font-bold text-emerald-600">
+            {formatNumber(annualCo2Kg)}
+            <span className="text-base font-medium text-emerald-400 ml-1">kg CO₂ offset / yr</span>
+          </p>
+        </div>
+        <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-4 ${open ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+            {impacts.map(item => (
+              <div key={item.unit} className="bg-emerald-50 rounded-xl p-3">
+                <span className="text-xl">{item.icon}</span>
+                <p className="text-lg font-bold text-slate-900 mt-1">{item.stat} <span className="text-sm font-semibold text-emerald-700">{item.unit}</span></p>
+                <p className="text-xs text-slate-500 mt-0.5">{item.note}</p>
+              </div>
+            ))}
+          </div>
+          <div className="bg-slate-900 rounded-xl p-4 mb-4">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">The bigger picture</p>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              A {systemCapacityKw} kW residential system produces clean electricity for roughly {panelLifetimeYears ?? 25} years.
+              Over that time it offsets the equivalent of {lifetimeCo2Tons ?? Math.round(annualCo2Kg * 25 / 1000)} metric tons of CO₂ —
+              comparable to not burning {Math.round((lifetimeCo2Tons ?? annualCo2Kg * 25 / 1000) * 0.45).toLocaleString()} gallons of gasoline.
+              Solar doesn&apos;t just save money. It means your home generates its own clean energy and sends the excess back to your neighbors.
+            </p>
+          </div>
+          <SourceLink href="https://developers.google.com/maps/documentation/solar" label="Google Solar API" />
+        </div>
       )}
-      <div className="space-y-2 mt-3">
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <span className="text-lg">🌳</span>
-          <span>Equivalent to planting <strong>{formatNumber(treesEquivalent)}</strong> trees per year</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <span className="text-lg">🚗</span>
-          <span>Like taking <strong>{carsOffRoad}</strong> cars off the road</span>
-        </div>
-      </div>
-      <div className="mt-4 pt-4 border-t border-slate-100">
-        <SourceLink href="https://developers.google.com/maps/documentation/solar" label="Google Solar API" />
-      </div>
     </Card>
   );
 }
@@ -889,6 +954,68 @@ function ReOptSection({
           </div>
         </>
       )}
+    </Card>
+  );
+}
+
+// ── Section 8b: 25-Year Savings Projection ───────────────────────────────────
+
+function ProjectionSection({ projection }: { projection?: SavingsProjection }) {
+  if (!projection) return null;
+
+  const snapshots = projection.yearlyData.filter(d => [1, 5, 10, 15, 20, 25].includes(d.year));
+  const pct = (projection.escalationRate * 100).toFixed(1);
+
+  return (
+    <Card>
+      <SectionLabel>25-Year Bill Projection</SectionLabel>
+
+      <div className="flex flex-wrap gap-6 mb-5">
+        <div>
+          <p className="text-4xl font-bold text-green-600">
+            {formatCurrency(projection.totalSavings25yr)}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">estimated total savings over 25 years</p>
+        </div>
+        <div className="sm:border-l sm:border-slate-100 sm:pl-6">
+          <p className="text-xs text-slate-400 mb-1">
+            {projection.escalationSource === 'eia_historical'
+              ? 'EIA historical escalation rate (your state)'
+              : 'National average escalation rate'}
+          </p>
+          <p className="text-2xl font-bold text-slate-900">{pct}%<span className="text-sm font-normal text-slate-400 ml-1">/yr</span></p>
+          <p className="text-xs text-slate-400 mt-0.5">How fast utility rates have risen on avg</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-slate-100">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="text-left text-xs font-semibold text-slate-500 px-4 py-2.5">Year</th>
+              <th className="text-right text-xs font-semibold text-red-500 px-4 py-2.5">Without solar / mo</th>
+              <th className="text-right text-xs font-semibold text-green-600 px-4 py-2.5">With solar / mo</th>
+              <th className="text-right text-xs font-semibold text-slate-600 px-4 py-2.5">Cumulative savings</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {snapshots.map(d => (
+              <tr key={d.year} className={d.year === 25 ? 'bg-green-50/50' : ''}>
+                <td className="px-4 py-2.5 text-slate-500 font-medium">Yr {d.year}</td>
+                <td className="px-4 py-2.5 text-right text-red-500 font-medium">{formatCurrency(d.monthlyBillWithout)}</td>
+                <td className="px-4 py-2.5 text-right text-green-600 font-semibold">{formatCurrency(d.monthlyBillWith)}</td>
+                <td className="px-4 py-2.5 text-right font-bold text-slate-800">{formatCurrency(d.cumulativeSavings)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-xs text-slate-400 leading-relaxed">
+        Assumes {pct}%/yr rate escalation
+        {projection.escalationSource === 'eia_historical' ? ' (EIA historical state average)' : ' (national 10-yr average)'},{' '}
+        0.5%/yr panel degradation, and consistent production. Actual results vary.
+      </p>
     </Card>
   );
 }

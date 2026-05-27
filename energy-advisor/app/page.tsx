@@ -110,21 +110,21 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-slate-950 border-b border-slate-800">
+      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-100 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <button
             onClick={handleReset}
-            className="flex items-center gap-2 text-white hover:text-amber-400 transition-colors"
+            className="flex items-center gap-2 text-slate-900 hover:text-amber-500 transition-colors"
           >
             <SunIcon className="w-5 h-5 text-amber-400" />
             <span className="font-bold text-base tracking-tight">Energy Advocate</span>
           </button>
           <div className="flex items-center gap-4">
-            <a href="/tools" className="text-sm text-slate-400 hover:text-amber-400 transition-colors font-medium">
+            <a href="/tools" className="text-sm text-slate-500 hover:text-amber-500 transition-colors font-medium">
               Quote & Contract Tools
             </a>
             {phase === 'result' && (
-              <button onClick={handleReset} className="text-sm text-slate-400 hover:text-white transition-colors">
+              <button onClick={handleReset} className="text-sm text-slate-400 hover:text-slate-700 transition-colors">
                 New assessment
               </button>
             )}

@@ -144,6 +144,30 @@ export interface FluxMapData {
   };
 }
 
+export interface AdderEstimate {
+  type: 'roof_replacement' | 'panel_upgrade' | 'ev_charger';
+  label: string;
+  lowEstimate: number;
+  highEstimate: number;
+  likelihood: 'likely' | 'possible';
+  note: string;
+}
+
+export interface YearlyProjectionPoint {
+  year: number;
+  monthlyBillWithout: number;
+  monthlyBillWith: number;
+  annualSavings: number;
+  cumulativeSavings: number;
+}
+
+export interface SavingsProjection {
+  escalationRate: number;
+  escalationSource: 'eia_historical' | 'national_average';
+  totalSavings25yr: number;
+  yearlyData: YearlyProjectionPoint[];
+}
+
 export interface ReOptData {
   optimalSystemKw: number;
   optimalBatteryKwh?: number;
@@ -168,4 +192,6 @@ export interface Assessment {
   googleFinancial?: GoogleFinancialSummary;
   fluxMap?: FluxMapData;
   reopt?: ReOptData;
+  projection?: SavingsProjection;
+  adders?: AdderEstimate[];
 }

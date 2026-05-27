@@ -1,19 +1,11 @@
 'use client';
 
-import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, usePDF } from '@react-pdf/renderer';
 import type { Assessment } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff', fontWeight: 400 },
-    { src: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hiJ-Ek-_EeA.woff', fontWeight: 700 },
-  ],
-});
-
 const S = StyleSheet.create({
-  page:        { fontFamily: 'Inter', fontSize: 9, color: '#1e293b', padding: '36pt 40pt', backgroundColor: '#fff' },
+  page:        { fontFamily: 'Helvetica', fontSize: 9, color: '#1e293b', padding: '36pt 40pt', backgroundColor: '#fff' },
   header:      { marginBottom: 18, borderBottom: '1.5pt solid #0ea5e9', paddingBottom: 10 },
   title:       { fontSize: 18, fontWeight: 700, color: '#0f172a', marginBottom: 2 },
   subtitle:    { fontSize: 9, color: '#64748b' },
@@ -201,23 +193,35 @@ export function AssessmentPDFDoc({ a }: { a: Assessment }) {
 
 export default function DownloadPDFButton({ assessment }: { assessment: Assessment }) {
   const filename = `solar-assessment-${assessment.address.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40)}.pdf`;
+  const [instance] = usePDF({ document: <AssessmentPDFDoc a={assessment} /> });
+
+  if (instance.loading) {
+    return (
+      <span className="flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-500 text-sm font-semibold rounded-lg cursor-wait">
+        <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+        Building…
+      </span>
+    );
+  }
+
+  if (instance.error || !instance.url) {
+    return (
+      <span className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-600 text-sm font-semibold rounded-lg" title={String(instance.error ?? 'PDF generation failed')}>
+        PDF unavailable
+      </span>
+    );
+  }
 
   return (
-    <PDFDownloadLink document={<AssessmentPDFDoc a={assessment} />} fileName={filename}
+    <a
+      href={instance.url}
+      download={filename}
       className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors"
     >
-      {({ loading }) => (
-        <>
-          {loading ? (
-            <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-          ) : (
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-          )}
-          <span>{loading ? 'Building…' : 'Download Report'}</span>
-        </>
-      )}
-    </PDFDownloadLink>
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Download Report
+    </a>
   );
 }
