@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Assessment, AssessmentRequest } from '@/lib/types';
 import AddressInput from './components/AddressInput';
 import LoadingState from './components/LoadingState';
@@ -8,12 +8,25 @@ import AssessmentCard from './components/AssessmentCard';
 
 type Phase = 'input' | 'loading' | 'result';
 
+const SESSION_KEY = 'ea_session';
+
 export default function Home() {
   const [phase, setPhase] = useState<Phase>('input');
   const [address, setAddress] = useState('');
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRefining, setIsRefining] = useState(false);
+
+  // Restore session when navigating back from /tools
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const { address: a, assessment: r } = JSON.parse(raw);
+        if (a && r) { setAddress(a); setAssessment(r); setPhase('result'); }
+      }
+    } catch { /* ignore parse errors */ }
+  }, []);
 
   async function runAssessment(req: AssessmentRequest): Promise<Assessment> {
     const res = await fetch('/api/assess', {
@@ -28,6 +41,10 @@ export default function Home() {
     return data as Assessment;
   }
 
+  function saveSession(addr: string, result: Assessment) {
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ address: addr, assessment: result })); } catch { /* ignore */ }
+  }
+
   async function handleAddressSubmit(addr: string, monthlyBill?: number) {
     setAddress(addr);
     setPhase('loading');
@@ -37,6 +54,7 @@ export default function Home() {
       const result = await runAssessment({ address: addr, monthlyBill });
       setAssessment(result);
       setPhase('result');
+      saveSession(addr, result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setPhase('input');
@@ -49,6 +67,7 @@ export default function Home() {
     try {
       const result = await runAssessment({ address, lat, lng });
       setAssessment(result);
+      saveSession(address, result);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -67,6 +86,7 @@ export default function Home() {
     try {
       const result = await runAssessment({ address, ...values });
       setAssessment(result);
+      saveSession(address, result);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -80,6 +100,7 @@ export default function Home() {
     setAssessment(null);
     setAddress('');
     setError(null);
+    try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
   }
 
   return (

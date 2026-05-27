@@ -173,12 +173,10 @@ export async function POST(request: NextRequest) {
         const details = best.financialDetails;
         if (cash && details) {
           googleFinancial = {
-            monthlyBillDollars:      parseInt(best.monthlyBill?.units ?? '0'),
-            paybackYears:            cash.paybackYears ?? 0,
-            lifetimeSavingsDollars:  parseInt(cash.savings?.presentValueOfSavingsLifetime?.units ?? '0'),
-            federalIncentiveDollars: parseInt(details.federalIncentive?.units ?? '0'),
-            netMeteringAllowed:      details.netMeteringAllowed ?? false,
-            solarPercentage:         details.solarPercentage ?? 0,
+            monthlyBillDollars:     parseInt(best.monthlyBill?.units ?? '0'),
+            lifetimeSavingsDollars: parseInt(cash.savings?.presentValueOfSavingsLifetime?.units ?? '0'),
+            netMeteringAllowed:     details.netMeteringAllowed ?? false,
+            solarPercentage:        details.solarPercentage ?? 0,
           };
         }
       }

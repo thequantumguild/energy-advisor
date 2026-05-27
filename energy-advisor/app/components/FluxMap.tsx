@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 interface Props {
   lat: number;
   lng: number;
+  compact?: boolean;
 }
 
 // Viridis-inspired solar heat map: purple → blue → teal → green → yellow
@@ -55,7 +56,7 @@ function InfoPopover({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function FluxMap({ lat, lng }: Props) {
+export default function FluxMap({ lat, lng, compact }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus]   = useState<Status>('idle');
   const [minVal, setMinVal]   = useState<number | null>(null);
@@ -137,7 +138,7 @@ export default function FluxMap({ lat, lng }: Props) {
   if (status === 'error') return null;
 
   return (
-    <div className="mt-3 rounded-xl border border-slate-100 overflow-hidden">
+    <div className={`rounded-xl border border-slate-100 overflow-hidden ${compact ? '' : 'mt-3'}`}>
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <div className="relative flex items-center gap-1.5">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -165,7 +166,7 @@ export default function FluxMap({ lat, lng }: Props) {
         )}
       </div>
 
-      <div className="relative bg-slate-100 mx-4 mb-3 rounded-lg overflow-hidden" style={{ height: 140 }}>
+      <div className="relative bg-slate-100 mx-4 mb-3 rounded-lg overflow-hidden" style={{ height: compact ? 128 : 140 }}>
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full"

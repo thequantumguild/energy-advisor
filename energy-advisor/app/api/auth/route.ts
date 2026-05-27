@@ -58,14 +58,6 @@ function buildPage(redirect: string, error = false) {
       margin-bottom: 6px;
     }
 
-    .card-sub {
-      font-size: 13px;
-      font-weight: 400;
-      color: #888;
-      margin-bottom: 28px;
-      letter-spacing: 0;
-    }
-
     .divider {
       border: none;
       border-top: 1px solid #e8e8e8;
@@ -135,10 +127,9 @@ function buildPage(redirect: string, error = false) {
     <div class="card">
       <span class="card-icon">🚫</span>
       <p class="card-title">No Soliciting</p>
-      <p class="card-sub">Leave the pitch at the door.</p>
       <hr class="divider" />
       <form method="POST" action="/api/auth?redirect=${encodeURIComponent(redirect)}">
-        <input type="password" name="password" placeholder="knock knock..." autofocus autocomplete="current-password" />
+        <input type="password" name="password" placeholder="Access code" autofocus autocomplete="current-password" />
         <button type="submit">Enter</button>
         ${error ? '<p class="error">Wrong password. Try again.</p>' : ''}
       </form>

@@ -61,9 +61,7 @@ export interface WholeRoofStats {
 
 export interface GoogleFinancialSummary {
   monthlyBillDollars: number;
-  paybackYears: number;
   lifetimeSavingsDollars: number;
-  federalIncentiveDollars: number;
   netMeteringAllowed: boolean;
   solarPercentage: number;
 }

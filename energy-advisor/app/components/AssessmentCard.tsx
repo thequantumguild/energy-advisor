@@ -109,6 +109,9 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
         </div>
       )}
 
+      {/* Ask about your assessment — top of page */}
+      <AssessmentChat assessment={assessment} />
+
       {/* Warnings */}
       {assessment.warnings?.map((w, i) => (
         <div key={i} className="flex gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
@@ -148,7 +151,6 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
       <PaybackSection payback={payback} savings={savings} googleFinancial={assessment.googleFinancial} />
       <ReOptSection reopt={reopt} loading={reoptLoading} systemCapacityKw={production.systemCapacityKw} />
       <FlagsSection cost={cost} incentives={incentives} />
-      <AssessmentChat assessment={assessment} />
     </div>
   );
 }
@@ -224,6 +226,7 @@ function RoofSection({
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   const shadingColor = {
     minimal:     'bg-green-100 text-green-700',
@@ -234,6 +237,7 @@ function RoofSection({
   const peakSunHoursPerDay = (roof.sunshineHoursPerYear / 365).toFixed(1);
   const hasSegments     = !!(roof.roofSegments && roof.roofSegments.length > 0);
   const useInteractiveMap = hasSegments && !mapFailed;
+  const hasMapContent = useInteractiveMap || (roofImageUrl && !imgFailed);
 
   const qualityColor = roof.imageryQuality === 'HIGH' ? 'text-green-600'
     : roof.imageryQuality === 'MEDIUM' ? 'text-amber-600' : 'text-slate-400';
@@ -256,38 +260,98 @@ function RoofSection({
         </div>
       </div>
 
-      {useInteractiveMap ? (
-        <div className="mb-5">
-          <SolarMap
-            centerLat={roof.lat}
-            centerLng={roof.lng}
-            segments={roof.roofSegments!}
-            onError={() => setMapFailed(true)}
-            onLocationRefine={onLocationRefine}
-            activeSegmentIndices={activeSegmentIndices}
-          />
-        </div>
-      ) : roofImageUrl && !imgFailed ? (
-        <div className="mb-5 rounded-xl overflow-hidden border border-slate-100">
-          <div className="relative w-full aspect-[2/1]">
-            <img src={roofImageUrl} alt="Satellite view of property"
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={() => setImgFailed(true)}
-            />
-            {hasSegments && (
-              <SolarSegmentOverlay
-                centerLat={roof.lat} centerLng={roof.lng} segments={roof.roofSegments!}
-              />
-            )}
+      {/* Side-by-side: Google map + Flux map */}
+      <div className={`grid gap-3 mb-5 ${hasMapContent ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+        {/* Left: Google satellite / interactive map */}
+        {hasMapContent && (
+          <div className="relative group cursor-pointer" onClick={() => setMapExpanded(true)}>
+            <div className="rounded-xl overflow-hidden border border-slate-100 h-48">
+              {useInteractiveMap ? (
+                <div className="pointer-events-none h-full">
+                  <SolarMap
+                    centerLat={roof.lat}
+                    centerLng={roof.lng}
+                    segments={roof.roofSegments!}
+                    onError={() => setMapFailed(true)}
+                    onLocationRefine={onLocationRefine}
+                    activeSegmentIndices={activeSegmentIndices}
+                  />
+                </div>
+              ) : roofImageUrl && !imgFailed ? (
+                <div className="relative w-full h-full">
+                  <img src={roofImageUrl} alt="Satellite view of property"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={() => setImgFailed(true)}
+                  />
+                  {hasSegments && (
+                    <SolarSegmentOverlay
+                      centerLat={roof.lat} centerLng={roof.lng} segments={roof.roofSegments!}
+                    />
+                  )}
+                </div>
+              ) : null}
+            </div>
+            {/* Expand overlay */}
+            <div className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 text-slate-800 text-xs font-medium px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+                Expand map
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 text-center mt-1.5">
+              {hasSegments ? 'Google Solar — roof segments' : 'Google Maps — satellite'}
+            </p>
           </div>
-          <p className="text-xs text-slate-400 text-center py-1.5 bg-slate-50 border-t border-slate-100">
-            {hasSegments ? 'Hover roof segments · Google Solar API' : 'Satellite imagery — Google Maps'}
-          </p>
-        </div>
-      ) : null}
+        )}
 
-      {/* Flux map */}
-      <FluxMap lat={roof.lat} lng={roof.lng} />
+        {/* Right: Solar flux heat map */}
+        <div>
+          <FluxMap lat={roof.lat} lng={roof.lng} compact />
+        </div>
+      </div>
+
+      {/* Expanded map modal */}
+      {mapExpanded && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+          onClick={() => setMapExpanded(false)}
+        >
+          <div
+            className="bg-white rounded-2xl overflow-hidden w-full max-w-3xl shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <p className="text-sm font-semibold text-slate-800">
+                {hasSegments ? 'Interactive roof segments — Google Solar API' : 'Satellite imagery — Google Maps'}
+              </p>
+              <button
+                onClick={() => setMapExpanded(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-500"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="h-[480px]">
+              {useInteractiveMap ? (
+                <SolarMap
+                  centerLat={roof.lat}
+                  centerLng={roof.lng}
+                  segments={roof.roofSegments!}
+                  onError={() => { setMapFailed(true); setMapExpanded(false); }}
+                  onLocationRefine={onLocationRefine}
+                  activeSegmentIndices={activeSegmentIndices}
+                />
+              ) : roofImageUrl && !imgFailed ? (
+                <img src={roofImageUrl} alt="Satellite view of property" className="w-full h-full object-cover" />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sunshine distribution */}
       {roof.wholeRoofStats?.sunshineQuantiles && (
@@ -692,20 +756,16 @@ function PaybackSection({
           </p>
           <p className="text-xs text-slate-400 mt-1">System cost: {formatCurrency(payback.grossCost)} · No federal credit applied</p>
         </div>
-        {googleFinancial && (
-          <div className="sm:border-l sm:border-slate-100 sm:pl-6">
-            <p className="text-xs text-slate-400 mb-1">Google Solar API estimate</p>
-            <p className="text-4xl font-bold text-blue-700">
-              {googleFinancial.paybackYears.toFixed(1)}
-              <span className="text-xl font-medium text-blue-400 ml-1">years</span>
-            </p>
-            <div className="mt-2 space-y-1 text-xs text-slate-500">
-              {googleFinancial.lifetimeSavingsDollars > 0 && (
-                <div className="flex justify-between">
-                  <span>Lifetime savings</span>
-                  <span className="font-medium text-slate-700">{formatCurrency(googleFinancial.lifetimeSavingsDollars)}</span>
-                </div>
-              )}
+        {googleFinancial && (googleFinancial.lifetimeSavingsDollars > 0 || googleFinancial.solarPercentage > 0) && (
+          <div className="sm:border-l sm:border-slate-100 sm:pl-6 space-y-2">
+            <p className="text-xs text-slate-400 mb-1">From Google Solar</p>
+            {googleFinancial.lifetimeSavingsDollars > 0 && (
+              <div>
+                <p className="text-xs text-slate-500">Est. lifetime savings</p>
+                <p className="text-2xl font-bold text-slate-900">{formatCurrency(googleFinancial.lifetimeSavingsDollars)}</p>
+              </div>
+            )}
+            <div className="flex flex-col gap-1 text-xs text-slate-500 pt-1">
               {googleFinancial.solarPercentage > 0 && (
                 <div className="flex justify-between">
                   <span>Solar % of usage</span>
@@ -792,6 +852,8 @@ function ReOptSection({
 // ── Section 9: What to Watch For ────────────────────────────────────────────
 
 function FlagsSection({ cost, incentives }: { cost: Assessment['cost']; incentives: Assessment['incentives'] }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
   const flags = [
     {
       title: 'Fair price is $2.70–$3.50 per watt (LBNL 2024)',
@@ -828,24 +890,37 @@ function FlagsSection({ cost, incentives }: { cost: Assessment['cost']; incentiv
   return (
     <Card className="border-amber-200 bg-amber-50">
       <SectionLabel>What to Watch For</SectionLabel>
-      <p className="text-xs text-slate-500 mb-5">
+      <p className="text-xs text-slate-500 mb-4">
         These are the things that trip up homeowners. Knowing them makes you a better buyer.
       </p>
-      <div className="space-y-5">
+      <div className="space-y-1">
         {flags.map((flag, i) => (
-          <div key={i} className="flex gap-3">
-            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center mt-0.5">
-              <span className="text-white text-xs font-bold">{i + 1}</span>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800 mb-1">{flag.title}</p>
-              <p className="text-sm text-slate-600 leading-relaxed">{flag.body}</p>
-              {flag.source && (
-                <div className="mt-1.5">
-                  <SourceLink href={flag.source.href} label={flag.source.label} />
-                </div>
-              )}
-            </div>
+          <div key={i} className="rounded-xl border border-amber-200 bg-white overflow-hidden">
+            <button
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-amber-50 transition-colors"
+              onClick={() => setOpenIndex(openIndex === i ? null : i)}
+            >
+              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center">
+                <span className="text-white text-xs font-bold">{i + 1}</span>
+              </div>
+              <span className="text-sm font-semibold text-slate-800 flex-1">{flag.title}</span>
+              <svg
+                className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform ${openIndex === i ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+              </svg>
+            </button>
+            {openIndex === i && (
+              <div className="px-4 pb-4 pt-1 border-t border-amber-100">
+                <p className="text-sm text-slate-600 leading-relaxed">{flag.body}</p>
+                {flag.source && (
+                  <div className="mt-2">
+                    <SourceLink href={flag.source.href} label={flag.source.label} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
