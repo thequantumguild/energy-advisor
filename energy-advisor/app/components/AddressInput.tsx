@@ -38,7 +38,7 @@ export default function AddressInput({ onSubmit, isLoading }: Props) {
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl font-black text-slate-900 text-center tracking-tight leading-[1.08] mb-4">
             Know exactly what solar<br />
-            <span className="text-green-700">is worth for your home.</span>
+            <span className="text-amber-500">is worth for your home.</span>
           </h1>
 
           <p className="text-base text-slate-500 text-center mb-10 leading-relaxed max-w-md mx-auto">
