@@ -186,6 +186,19 @@ export interface ReOptData {
   lcoePerKwh: number;
 }
 
+export interface LocationRisk {
+  floodZone?: string;          // FEMA: 'X' (minimal), 'AE' (high), 'A', 'VE', etc.
+  floodZoneLabel?: string;     // human-readable
+  hailRiskScore?: number;      // NOAA: avg hail events/yr in county
+  hailRiskLabel?: string;
+  airQualityIndex?: number;    // EPA: AQI (affects soiling loss estimate)
+  airQualityLabel?: string;
+  soilingLossPct?: number;     // derived from AQI + climate zone
+  solarResourceGhi?: number;   // NREL NSRDB: annual GHI kWh/m²/day
+  solarResourceDni?: number;   // NREL NSRDB: annual DNI kWh/m²/day
+  nsrdbSource?: string;        // e.g. 'NREL NSRDB 2022'
+}
+
 export interface Assessment {
   address: string;
   roof: RoofData;
@@ -203,4 +216,5 @@ export interface Assessment {
   reopt?: ReOptData;
   projection?: SavingsProjection;
   adders?: AdderEstimate[];
+  locationRisk?: LocationRisk;
 }

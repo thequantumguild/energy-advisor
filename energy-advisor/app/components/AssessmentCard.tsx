@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import type { Assessment, StateIncentive, ReOptData, AdderEstimate, SavingsProjection } from '@/lib/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -191,6 +192,7 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
       </div>
 
       {/* Full-width sections */}
+      {assessment.locationRisk && <LocationRiskSection risk={assessment.locationRisk} />}
       <IncentivesSection incentives={incentives} cost={cost} />
       <PaybackSection payback={payback} savings={savings} googleFinancial={assessment.googleFinancial} />
       <ProjectionSection projection={assessment.projection} />
@@ -797,6 +799,68 @@ function ImpactSection({
   );
 }
 
+// ── Section 5b: Location Risk ────────────────────────────────────────────────
+
+import type { LocationRisk } from '@/lib/types';
+
+function LocationRiskSection({ risk }: { risk: LocationRisk }) {
+  const items = [
+    risk.floodZoneLabel && {
+      icon: '🌊',
+      label: 'Flood Zone',
+      value: risk.floodZoneLabel,
+      sub: risk.floodZone ? `FEMA Zone ${risk.floodZone}` : undefined,
+      alert: risk.floodZone && risk.floodZone !== 'X',
+    },
+    risk.hailRiskLabel && {
+      icon: '🌨',
+      label: 'Hail Risk',
+      value: risk.hailRiskLabel,
+      sub: 'Ask installer about IEC 61215 Class 3 hail rating',
+      alert: risk.hailRiskLabel === 'High',
+    },
+    risk.airQualityLabel && {
+      icon: '💨',
+      label: 'Air Quality',
+      value: `${risk.airQualityLabel}${risk.airQualityIndex ? ` (AQI ${risk.airQualityIndex})` : ''}`,
+      sub: risk.soilingLossPct ? `~${risk.soilingLossPct}% annual soiling loss estimated` : undefined,
+      alert: (risk.airQualityIndex ?? 0) > 100,
+    },
+    risk.solarResourceGhi && {
+      icon: '☀️',
+      label: 'Solar Resource',
+      value: `${risk.solarResourceGhi.toFixed(2)} kWh/m²/day GHI`,
+      sub: risk.solarResourceDni ? `${risk.solarResourceDni.toFixed(2)} kWh/m²/day DNI · ${risk.nsrdbSource}` : risk.nsrdbSource,
+      alert: false,
+    },
+  ].filter(Boolean) as { icon: string; label: string; value: string; sub?: string; alert: boolean }[];
+
+  if (items.length === 0) return null;
+
+  return (
+    <Card>
+      <SectionLabel>Location Risk Factors</SectionLabel>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {items.map(item => (
+          <div key={item.label} className={`flex gap-3 p-3 rounded-xl ${item.alert ? 'bg-amber-50 border border-amber-100' : 'bg-slate-50 border border-slate-100'}`}>
+            <span className="text-xl flex-shrink-0 mt-0.5">{item.icon}</span>
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">{item.label}</p>
+              <p className={`text-sm font-bold ${item.alert ? 'text-amber-700' : 'text-slate-800'}`}>{item.value}</p>
+              {item.sub && <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{item.sub}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-4">
+        <SourceLink href="https://hazards.fema.gov/femaportal/NFHL/" label="FEMA National Flood Hazard Layer" />
+        <SourceLink href="https://www.airnow.gov/" label="EPA AirNow" />
+        <SourceLink href="https://developer.nrel.gov/docs/solar/solar-resource-v1/" label="NREL Solar Resource" />
+      </div>
+    </Card>
+  );
+}
+
 // ── Section 6: Incentives ────────────────────────────────────────────────────
 
 function IncentivesSection({ incentives, cost }: { incentives: Assessment['incentives']; cost: Assessment['cost'] }) {
@@ -1103,10 +1167,10 @@ function ProjectionSection({ projection }: { projection?: SavingsProjection }) {
         )}
       </Card>
 
-      {/* How to read this — modal */}
-      {howToOpen && (
+      {/* How to read this — portaled modal so transform on parent doesn't trap fixed position */}
+      {howToOpen && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4"
           onClick={() => setHowToOpen(false)}
         >
           <div
@@ -1131,7 +1195,7 @@ function ProjectionSection({ projection }: { projection?: SavingsProjection }) {
                 {
                   label: 'With solar / mo',
                   color: 'text-green-600',
-                  body: 'Your residual monthly bill after solar covers most of your usage. It\'s not zero because of fixed utility connection fees ($10–$30/mo), any consumption that exceeds what your panels produce, and panel output that degrades 0.5% per year.',
+                  body: 'Your residual monthly bill after solar covers most of your usage. It\'s not zero because of fixed utility connection fees ($10–$30/mo), any consumption that exceeds what your panels produce, and panel output that degrades slightly each year.',
                 },
                 {
                   label: 'Cumulative savings',
@@ -1150,18 +1214,15 @@ function ProjectionSection({ projection }: { projection?: SavingsProjection }) {
                 </div>
               ))}
               <div className="pt-2 border-t border-slate-100">
-                <a
-                  href={eiaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-slate-400 hover:text-blue-600 hover:underline transition-colors"
-                >
+                <a href={eiaUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-slate-400 hover:text-blue-600 hover:underline transition-colors">
                   Source: EIA Electricity Retail Sales API →
                 </a>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

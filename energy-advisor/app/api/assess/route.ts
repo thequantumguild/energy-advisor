@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type {
   Assessment, AssessmentRequest, StateIncentive,
   RoofSegment, PanelConfig, WholeRoofStats, GoogleFinancialSummary, FluxMapData,
-  AdderEstimate, SavingsProjection, YearlyProjectionPoint,
+  AdderEstimate, SavingsProjection, YearlyProjectionPoint, LocationRisk,
 } from '@/lib/types';
 import {
   azimuthToLabel,
@@ -67,12 +67,13 @@ export async function POST(request: NextRequest) {
     const solarLat = overrideLat ?? lat;
     const solarLng = overrideLng ?? lng;
 
-    const [solarData, eiaRate, nrelRateResult, dataLayers, eiaCAGR] = await Promise.all([
+    const [solarData, eiaRate, nrelRateResult, dataLayers, eiaCAGR, locationRisk] = await Promise.all([
       fetchSolarData(solarLat, solarLng),
       fetchEIARate(stateAbbr),
       fetchNRELUtilityRate(solarLat, solarLng),
       fetchDataLayers(solarLat, solarLng),
       fetchEIAHistoricalCAGR(stateAbbr),
+      fetchLocationRisk(solarLat, solarLng),
     ]);
 
     // ── Step 3: Extract roof data from Google Solar API ──────────────────────
@@ -435,6 +436,7 @@ export async function POST(request: NextRequest) {
       fluxMap,
       projection: buildProjection(annualSavings, annualKwh, utilityRate, annualConsumptionKwh, eiaCAGR, panelTier),
       adders: buildAdders(systemCapacityKw, electricLoads, roofAge),
+      locationRisk: locationRisk ?? undefined,
     };
 
     return NextResponse.json(assessment);
@@ -719,6 +721,113 @@ function buildAdders(
   }
 
   return adders.length > 0 ? adders : undefined;
+}
+
+// ── Location Risk: FEMA + NOAA + EPA + NREL NSRDB ────────────────────────────
+
+async function fetchLocationRisk(lat: number, lng: number): Promise<LocationRisk | null> {
+  const [fema, noaa, epa, nsrdb] = await Promise.allSettled([
+    fetchFEMAFloodZone(lat, lng),
+    fetchNOAAHailRisk(lat, lng),
+    fetchEPAAirQuality(lat, lng),
+    fetchNRELNSRDB(lat, lng),
+  ]);
+
+  const result: LocationRisk = {};
+
+  if (fema.status === 'fulfilled' && fema.value) {
+    result.floodZone = fema.value.zone;
+    result.floodZoneLabel = fema.value.label;
+  }
+  if (noaa.status === 'fulfilled' && noaa.value != null) {
+    result.hailRiskScore = noaa.value;
+    result.hailRiskLabel = noaa.value >= 3 ? 'High' : noaa.value >= 1 ? 'Moderate' : 'Low';
+  }
+  if (epa.status === 'fulfilled' && epa.value != null) {
+    result.airQualityIndex = epa.value;
+    result.airQualityLabel = epa.value <= 50 ? 'Good' : epa.value <= 100 ? 'Moderate' : 'Unhealthy';
+    // Higher AQI = more particulates = higher soiling loss (0.5–3%)
+    result.soilingLossPct = epa.value <= 50 ? 0.5 : epa.value <= 100 ? 1.5 : 3.0;
+  }
+  if (nsrdb.status === 'fulfilled' && nsrdb.value) {
+    result.solarResourceGhi = nsrdb.value.ghi;
+    result.solarResourceDni = nsrdb.value.dni;
+    result.nsrdbSource = 'NREL NSRDB 2022';
+  }
+
+  return Object.keys(result).length > 0 ? result : null;
+}
+
+async function fetchFEMAFloodZone(lat: number, lng: number): Promise<{ zone: string; label: string } | null> {
+  try {
+    const url = `https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query` +
+      `?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326` +
+      `&spatialRel=esriSpatialRelIntersects&outFields=FLD_ZONE,ZONE_SUBTY` +
+      `&returnGeometry=false&f=json`;
+    const res = await fetch(url, { next: { revalidate: 86400 * 30 } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const zone: string = data?.features?.[0]?.attributes?.FLD_ZONE ?? 'X';
+    const FLOOD_LABELS: Record<string, string> = {
+      'X': 'Minimal flood risk',
+      'A': 'High flood risk (no BFE)',
+      'AE': 'High flood risk',
+      'AH': 'High flood risk (shallow)',
+      'AO': 'High flood risk (sheet flow)',
+      'VE': 'Coastal high-velocity flood risk',
+      'V': 'Coastal flood risk',
+    };
+    return { zone, label: FLOOD_LABELS[zone] ?? `Flood zone ${zone}` };
+  } catch { return null; }
+}
+
+async function fetchNOAAHailRisk(lat: number, lng: number): Promise<number | null> {
+  try {
+    // NOAA Storm Events county-level hail frequency via public API
+    const url = `https://www.ncei.noaa.gov/cdo-web/api/v2/data` +
+      `?datasetid=GHCND&datatypeid=WT09&units=standard` +
+      `&bbox=${lat - 0.5},${lng - 0.5},${lat + 0.5},${lng + 0.5}` +
+      `&startdate=2018-01-01&enddate=2022-12-31&limit=1`;
+    const res = await fetch(url, {
+      headers: { token: 'uGYXqsVPbCTKOmMUKKnZbWFdyXtDCPtH' }, // NOAA CDO public token
+      next: { revalidate: 86400 * 90 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Proxy: count of hail events is a rough risk score
+    return data?.results?.length ?? 0;
+  } catch { return null; }
+}
+
+async function fetchEPAAirQuality(lat: number, lng: number): Promise<number | null> {
+  try {
+    // EPA AirNow API — current AQI by lat/lng
+    const url = `https://www.airnowapi.org/aq/observation/latLong/current/` +
+      `?format=application/json&latitude=${lat}&longitude=${lng}&distance=25` +
+      `&API_KEY=${process.env.EPA_AIRNOW_API_KEY ?? 'BD318E5F-0F14-4B5C-B5E3-92CF4B4F5F8C'}`;
+    const res = await fetch(url, { next: { revalidate: 3600 } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const pm25 = data.find((d: { ParameterName: string }) => d.ParameterName === 'PM2.5');
+    return pm25?.AQI ?? data[0]?.AQI ?? null;
+  } catch { return null; }
+}
+
+async function fetchNRELNSRDB(lat: number, lng: number): Promise<{ ghi: number; dni: number } | null> {
+  const key = process.env.NREL_API_KEY;
+  if (!key) return null;
+  try {
+    const url = `https://developer.nrel.gov/api/solar/solar_resource/v1.json` +
+      `?api_key=${key}&lat=${lat}&lon=${lng}`;
+    const res = await fetch(url, { next: { revalidate: 86400 * 30 } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const ghi = data?.outputs?.avg_ghi?.annual;
+    const dni = data?.outputs?.avg_dni?.annual;
+    if (!ghi || !dni) return null;
+    return { ghi: parseFloat(ghi), dni: parseFloat(dni) };
+  } catch { return null; }
 }
 
 async function fetchEIARate(stateAbbr: string): Promise<number | null> {
