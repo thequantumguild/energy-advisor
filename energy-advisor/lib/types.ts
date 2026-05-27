@@ -11,6 +11,8 @@ export interface AssessmentRequest {
   roofAge?: 'new' | 'good' | 'aging' | 'unknown';
   batteryInterest?: 'yes' | 'maybe' | 'no';
   paymentPreference?: 'cash' | 'loan' | 'lease_ppa' | 'unsure';
+  panelTier?: 'premium' | 'standard' | 'budget';
+  inverterType?: 'string' | 'micro' | 'optimizer';
 }
 
 export interface PanelSegmentSummary {
@@ -83,12 +85,18 @@ export interface ProductionData {
   pvwattsAnnualKwh?: number;
   googleAnnualKwh?: number;
   productionConfidence?: 'high' | 'medium' | 'low';
+  // P50/P90/P10 confidence range
+  p90Kwh?: number;
+  p10Kwh?: number;
   // PVWatts extended outputs
   capacityFactor?: number;
   dcAnnualKwh?: number;
   dcMonthlyKwh?: number[];
   poaMonthly?: number[];
   solradAnnual?: number;
+  inverterType?: 'string' | 'micro' | 'optimizer';
+  inverterEfficiencyPct?: number;
+  systemLossPct?: number;
 }
 
 export interface SavingsData {
@@ -166,6 +174,7 @@ export interface SavingsProjection {
   escalationSource: 'eia_historical' | 'national_average';
   totalSavings25yr: number;
   yearlyData: YearlyProjectionPoint[];
+  degradationRate: number;
 }
 
 export interface ReOptData {

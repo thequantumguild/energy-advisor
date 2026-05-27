@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       address, monthlyBill, hasHighLoads, shadingOverride,
       lat: overrideLat, lng: overrideLng,
       electricLoads, stayYears, roofAge, batteryInterest, paymentPreference,
+      panelTier, inverterType,
     } = body;
 
     if (!address?.trim()) {
@@ -224,7 +225,22 @@ export async function POST(request: NextRequest) {
     let solradAnnual: number | undefined;
     let capacityFactor: number | undefined;
 
-    const pvwattsResult = await fetchPVWatts(solarLat, solarLng, systemCapacityKw, azimuthDegrees, pitchDegrees);
+    // Snow loss by state (added on top of PVWatts base 14% losses)
+    const SNOW_LOSS_PCT: Record<string, number> = {
+      MN: 5, WI: 4, MI: 4, ND: 5, SD: 4, MT: 4, WY: 3, CO: 3,
+      VT: 5, NH: 4, ME: 5, NY: 3, PA: 3, OH: 3, IN: 3, IL: 3,
+      MA: 3, RI: 2, CT: 2, NJ: 2, MD: 2, WV: 2, IA: 3, NE: 2,
+      MO: 2, KY: 1, VA: 1, ID: 3, WA: 2, OR: 1,
+    };
+    const snowLoss = SNOW_LOSS_PCT[stateAbbr] ?? 0;
+    // Inverter efficiency adjustment to base losses
+    const INVERTER_EFFICIENCY: Record<string, number> = { string: 96.5, micro: 98.0, optimizer: 97.5 };
+    const inverterEfficiencyPct = INVERTER_EFFICIENCY[inverterType ?? ''] ?? 96.5;
+    // PVWatts losses = base 14% + snow. Inverter efficiency is already embedded in module_type.
+    const pvwattsLosses = Math.min(30, 14 + snowLoss);
+    const systemLossPct = pvwattsLosses;
+
+    const pvwattsResult = await fetchPVWatts(solarLat, solarLng, systemCapacityKw, azimuthDegrees, pitchDegrees, pvwattsLosses);
     if (pvwattsResult !== null) {
       pvwattsAnnualKwh = Math.round(pvwattsResult.acAnnual * shadingLossFactor);
       monthlyKwh       = pvwattsResult.acMonthly?.map(v => Math.round(v * shadingLossFactor));
@@ -376,6 +392,11 @@ export async function POST(request: NextRequest) {
         dcMonthlyKwh,
         poaMonthly,
         solradAnnual,
+        p90Kwh: Math.round(annualKwh * 0.90),
+        p10Kwh: Math.round(annualKwh * 1.10),
+        inverterType: inverterType ?? undefined,
+        inverterEfficiencyPct,
+        systemLossPct,
       },
       savings: {
         offsetPercent,
@@ -412,7 +433,7 @@ export async function POST(request: NextRequest) {
       roofImageUrl: `/api/satellite?lat=${lat}&lng=${lng}`,
       googleFinancial,
       fluxMap,
-      projection: buildProjection(annualSavings, annualKwh, utilityRate, annualConsumptionKwh, eiaCAGR),
+      projection: buildProjection(annualSavings, annualKwh, utilityRate, annualConsumptionKwh, eiaCAGR, panelTier),
       adders: buildAdders(systemCapacityKw, electricLoads, roofAge),
     };
 
@@ -514,7 +535,8 @@ async function fetchPVWatts(
   lat: number, lng: number,
   systemCapacityKw: number,
   azimuth: number,
-  tilt: number
+  tilt: number,
+  losses = 14,
 ): Promise<PVWattsResult | null> {
   const key = process.env.NREL_API_KEY;
   if (!key) { console.error('[pvwatts] NREL_API_KEY is not set'); return null; }
@@ -528,7 +550,7 @@ async function fetchPVWatts(
       tilt: tilt.toString(),
       array_type: '1',
       module_type: '1',
-      losses: '14',
+      losses: losses.toString(),
     });
     const res = await fetch(`https://developer.nrel.gov/api/pvwatts/v8.json?${params}`);
     if (!res.ok) {
@@ -618,11 +640,13 @@ function buildProjection(
   utilityRate: number,
   annualConsumptionKwh: number,
   eia: { rate: number; source: 'eia_historical' | 'national_average' },
+  panelTier?: 'premium' | 'standard' | 'budget',
 ): SavingsProjection {
   const { rate: escalation, source } = eia;
   const yearlyData: YearlyProjectionPoint[] = [];
   let cumulative = 0;
-  const PANEL_DEGRADATION = 0.005; // 0.5%/yr
+  const DEGRADATION_BY_TIER = { premium: 0.003, standard: 0.005, budget: 0.007 };
+  const PANEL_DEGRADATION = DEGRADATION_BY_TIER[panelTier ?? 'standard'];
 
   for (let yr = 1; yr <= 25; yr++) {
     const rateThisYear = utilityRate * Math.pow(1 + escalation, yr);
@@ -641,12 +665,13 @@ function buildProjection(
     });
   }
 
-  void annualSavings; // annualSavings is year-1, projection builds its own
+  void annualSavings;
   return {
     escalationRate: escalation,
     escalationSource: source,
     totalSavings25yr: Math.round(cumulative),
     yearlyData,
+    degradationRate: PANEL_DEGRADATION,
   };
 }
 

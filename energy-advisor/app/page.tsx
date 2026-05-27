@@ -84,6 +84,8 @@ export default function Home() {
     roofAge?: 'new' | 'good' | 'aging' | 'unknown';
     batteryInterest?: 'yes' | 'maybe' | 'no';
     paymentPreference?: 'cash' | 'loan' | 'lease_ppa' | 'unsure';
+    panelTier?: 'premium' | 'standard' | 'budget';
+    inverterType?: 'string' | 'micro' | 'optimizer';
   }) {
     setIsRefining(true);
     setError(null);

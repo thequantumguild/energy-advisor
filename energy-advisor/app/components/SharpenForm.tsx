@@ -10,6 +10,8 @@ interface SharpenValues {
   roofAge?: 'new' | 'good' | 'aging' | 'unknown';
   batteryInterest?: 'yes' | 'maybe' | 'no';
   paymentPreference?: 'cash' | 'loan' | 'lease_ppa' | 'unsure';
+  panelTier?: 'premium' | 'standard' | 'budget';
+  inverterType?: 'string' | 'micro' | 'optimizer';
 }
 
 interface ParsedBill {
@@ -89,6 +91,9 @@ export default function SharpenForm({ onSubmit, isLoading }: Props) {
   const [batteryInterest, setBatteryInterest] = useState<SharpenValues['batteryInterest']>();
   const [paymentPref, setPaymentPref] = useState<SharpenValues['paymentPreference']>();
 
+  const [panelTier, setPanelTier] = useState<SharpenValues['panelTier']>();
+  const [inverterType, setInverterType] = useState<SharpenValues['inverterType']>();
+
   const [uploading, setUploading] = useState(false);
   const [parsed, setParsed] = useState<ParsedBill | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -132,10 +137,12 @@ export default function SharpenForm({ onSubmit, isLoading }: Props) {
       roofAge,
       batteryInterest,
       paymentPreference:  paymentPref,
+      panelTier,
+      inverterType,
     });
   }
 
-  const hasAnyAnswer = bill || shading || loads.length || stayYears || roofAge || batteryInterest || paymentPref;
+  const hasAnyAnswer = bill || shading || loads.length || stayYears || roofAge || batteryInterest || paymentPref || panelTier || inverterType;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -279,6 +286,38 @@ export default function SharpenForm({ onSubmit, isLoading }: Props) {
             { v: 'unsure',    label: "Haven't decided yet" },
           ] as const).map(({ v, label }) => (
             <Chip key={v} value={v} selected={paymentPref === v} onClick={setPaymentPref}>{label}</Chip>
+          ))}
+        </div>
+      </Question>
+
+      {/* Panel tier */}
+      <Question
+        label="What panel quality are you considering?"
+        sub="Affects the 25-year degradation rate used in your projection (0.3–0.7%/yr)"
+      >
+        <div className="flex flex-wrap gap-2">
+          {([
+            { v: 'premium', label: '⭐ Premium — LG, Panasonic, REC (0.3%/yr)' },
+            { v: 'standard', label: '✓ Standard — most major brands (0.5%/yr)' },
+            { v: 'budget', label: '↓ Budget / entry-level (0.7%/yr)' },
+          ] as const).map(({ v, label }) => (
+            <Chip key={v} value={v} selected={panelTier === v} onClick={setPanelTier}>{label}</Chip>
+          ))}
+        </div>
+      </Question>
+
+      {/* Inverter type */}
+      <Question
+        label="What type of inverter are you considering?"
+        sub="Microinverters and power optimizers work better on shaded or complex roofs"
+      >
+        <div className="flex flex-wrap gap-2">
+          {([
+            { v: 'string',    label: '⚡ String inverter — standard, lowest cost (96.5% eff.)' },
+            { v: 'optimizer', label: '🔧 Power optimizer — SolarEdge (97.5% eff.)' },
+            { v: 'micro',     label: '🔬 Microinverter — Enphase, per-panel (98% eff.)' },
+          ] as const).map(({ v, label }) => (
+            <Chip key={v} value={v} selected={inverterType === v} onClick={setInverterType}>{label}</Chip>
           ))}
         </div>
       </Question>

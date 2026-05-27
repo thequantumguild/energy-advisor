@@ -24,6 +24,8 @@ interface SharpenValues {
   roofAge?: 'new' | 'good' | 'aging' | 'unknown';
   batteryInterest?: 'yes' | 'maybe' | 'no';
   paymentPreference?: 'cash' | 'loan' | 'lease_ppa' | 'unsure';
+  panelTier?: 'premium' | 'standard' | 'budget';
+  inverterType?: 'string' | 'micro' | 'optimizer';
 }
 
 interface Props {
@@ -534,6 +536,45 @@ function ProductionSection({
         </div>
       )}
 
+      {/* P50 / P90 / P10 confidence range */}
+      {production.p90Kwh != null && production.p10Kwh != null && (
+        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Production Confidence Range</p>
+            <span className="text-xs text-slate-400">Used by solar lenders</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <p className="text-xs text-slate-400 mb-1">P90 — Conservative</p>
+              <p className="text-lg font-bold text-red-500">{formatNumber(production.p90Kwh)}</p>
+              <p className="text-xs text-slate-400">kWh/yr</p>
+              <p className="text-xs text-slate-400 mt-1">90% chance of hitting this</p>
+            </div>
+            <div className="text-center border-x border-slate-200">
+              <p className="text-xs text-slate-400 mb-1">P50 — Base Case</p>
+              <p className="text-lg font-bold text-slate-900">{formatNumber(production.annualKwh)}</p>
+              <p className="text-xs text-slate-400">kWh/yr</p>
+              <p className="text-xs text-slate-400 mt-1">TMY median estimate</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-400 mb-1">P10 — Optimistic</p>
+              <p className="text-lg font-bold text-green-600">{formatNumber(production.p10Kwh)}</p>
+              <p className="text-xs text-slate-400">kWh/yr</p>
+              <p className="text-xs text-slate-400 mt-1">10% chance of exceeding</p>
+            </div>
+          </div>
+          {production.inverterType && (
+            <p className="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-200">
+              Inverter: <span className="font-medium text-slate-600">
+                {production.inverterType === 'micro' ? 'Microinverter' : production.inverterType === 'optimizer' ? 'Power optimizer' : 'String inverter'}
+              </span>
+              {production.inverterEfficiencyPct && <> · {production.inverterEfficiencyPct}% efficiency</>}
+              {production.systemLossPct != null && <> · {production.systemLossPct}% total system losses</>}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Extended PVWatts data */}
       {(production.dcAnnualKwh || production.solradAnnual) && (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
@@ -1035,7 +1076,8 @@ function ProjectionSection({ projection }: { projection?: SavingsProjection }) {
               <p className="text-xs text-slate-400 leading-relaxed max-w-lg">
                 Assumes {pct}%/yr rate escalation
                 {projection.escalationSource === 'eia_historical' ? ' (EIA historical state average)' : ' (national 10-yr average)'},{' '}
-                0.5%/yr panel degradation, and consistent production. Actual results vary.
+                {(projection.degradationRate * 100).toFixed(1)}%/yr panel degradation
+                {projection.degradationRate === 0.003 ? ' (premium panels)' : projection.degradationRate === 0.007 ? ' (budget panels)' : ''}, and consistent production. Actual results vary.
               </p>
               <div className="flex items-center gap-3 flex-shrink-0">
                 <button
