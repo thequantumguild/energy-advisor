@@ -20,7 +20,7 @@ export default function AssessmentChat({ assessment }: { assessment: Assessment 
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (open && messages.length > 0) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, open]);
 
   async function send(text: string) {
