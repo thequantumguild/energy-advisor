@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Energy Advisor — Know Your Solar Before You Buy',
+  title: 'Energy Advocate — Know Your Solar Before You Buy',
   description:
     'Get a real, data-backed solar assessment for your home — pulled from Google Solar, NREL, and the EIA. No salespeople. No fluff. Just honest numbers.',
 };

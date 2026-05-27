@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import type { Assessment, StateIncentive, ReOptData } from '@/lib/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import SolarMap from './SolarMap';
@@ -9,15 +10,28 @@ import MonthlyProductionChart from './MonthlyProductionChart';
 import PanelSlider from './PanelSlider';
 import RoofHistogram from './RoofHistogram';
 import FluxMap from './FluxMap';
+import SharpenForm from './SharpenForm';
+
+// PDF renderer uses browser APIs — load client-side only
+const DownloadPDFButton = dynamic(() => import('./AssessmentPDF'), { ssr: false });
+
+interface SharpenValues {
+  monthlyBill?: number;
+  hasHighLoads?: 'yes' | 'no' | 'not_sure';
+  shadingOverride?: 'yes' | 'partially' | 'lots';
+}
 
 interface Props {
   assessment: Assessment;
   onLocationRefine?: (lat: number, lng: number) => void;
+  onSharpen?: (values: SharpenValues) => void;
+  isRefining?: boolean;
 }
 
-export default function AssessmentCard({ assessment, onLocationRefine }: Props) {
+export default function AssessmentCard({ assessment, onLocationRefine, onSharpen, isRefining }: Props) {
   const { roof, production, savings, cost, incentives, payback } = assessment;
 
+  const [refineOpen, setRefineOpen] = useState(false);
   // Shared state: which segments are active based on panel slider position
   const [activeSegmentIndices, setActiveSegmentIndices] = useState<number[] | undefined>(undefined);
 
@@ -50,14 +64,49 @@ export default function AssessmentCard({ assessment, onLocationRefine }: Props) 
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4 animate-fade-up">
-      {/* Address banner */}
+
+      {/* Address banner + actions */}
       <div className="flex items-start justify-between gap-4 px-1">
         <div>
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Assessment for</p>
           <p className="text-sm font-semibold text-slate-700 mt-0.5">{assessment.address}</p>
         </div>
-        <DataQualityBadge quality={assessment.dataQuality} />
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <DataQualityBadge quality={assessment.dataQuality} />
+          <DownloadPDFButton assessment={assessment} />
+        </div>
       </div>
+
+      {/* Refine your numbers — collapsible top panel */}
+      {onSharpen && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <button
+            onClick={() => setRefineOpen(v => !v)}
+            className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0z" />
+              </svg>
+              <span className="text-sm font-semibold text-slate-800">Refine your numbers</span>
+              <span className="text-xs text-slate-400">Upload your bill or answer a few questions for a tighter estimate</span>
+            </div>
+            <svg
+              className={`w-4 h-4 text-slate-400 transition-transform ${refineOpen ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+            </svg>
+          </button>
+          {refineOpen && (
+            <div className="px-6 pb-6 border-t border-slate-100">
+              <div className="pt-5">
+                <SharpenForm onSubmit={onSharpen} isLoading={isRefining ?? false} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Warnings */}
       {assessment.warnings?.map((w, i) => (

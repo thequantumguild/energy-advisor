@@ -5,7 +5,6 @@ import type { Assessment, AssessmentRequest } from '@/lib/types';
 import AddressInput from './components/AddressInput';
 import LoadingState from './components/LoadingState';
 import AssessmentCard from './components/AssessmentCard';
-import SharpenForm from './components/SharpenForm';
 
 type Phase = 'input' | 'loading' | 'result';
 
@@ -93,7 +92,7 @@ export default function Home() {
             className="flex items-center gap-2 text-slate-900 hover:text-blue-600 transition-colors"
           >
             <SunIcon className="w-5 h-5 text-amber-400" />
-            <span className="font-bold text-base tracking-tight">Energy Advisor</span>
+            <span className="font-bold text-base tracking-tight">Energy Advocate</span>
           </button>
           {phase === 'result' && (
             <button
@@ -128,11 +127,12 @@ export default function Home() {
                 {error}
               </div>
             )}
-            <AssessmentCard assessment={assessment} onLocationRefine={handleLocationRefine} />
-
-            <div className="max-w-4xl mx-auto pt-6 border-t border-slate-200">
-              <SharpenForm onSubmit={handleSharpen} isLoading={isRefining} />
-            </div>
+            <AssessmentCard
+              assessment={assessment}
+              onLocationRefine={handleLocationRefine}
+              onSharpen={handleSharpen}
+              isRefining={isRefining}
+            />
           </div>
         )}
       </main>
