@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
             offtaker_discount_pct: 0.083,
             offtaker_tax_pct: 0.26,
             analysis_years: 25,
-            federal_itc_pct: 0.30,
+            federal_itc_pct: 0,
           },
         },
       },

@@ -11,6 +11,7 @@ import PanelSlider from './PanelSlider';
 import RoofHistogram from './RoofHistogram';
 import FluxMap from './FluxMap';
 import SharpenForm from './SharpenForm';
+import AssessmentChat from './AssessmentChat';
 
 // PDF renderer uses browser APIs — load client-side only
 const DownloadPDFButton = dynamic(() => import('./AssessmentPDF'), { ssr: false });
@@ -147,6 +148,7 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
       <PaybackSection payback={payback} savings={savings} googleFinancial={assessment.googleFinancial} />
       <ReOptSection reopt={reopt} loading={reoptLoading} systemCapacityKw={production.systemCapacityKw} />
       <FlagsSection cost={cost} incentives={incentives} />
+      <AssessmentChat assessment={assessment} />
     </div>
   );
 }
@@ -598,18 +600,45 @@ function IncentivesSection({ incentives, cost }: { incentives: Assessment['incen
 
   return (
     <Card>
-      <SectionLabel>Federal & State Incentives</SectionLabel>
-      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-        <p className="text-sm font-semibold text-slate-700 mb-2">Verified incentive data coming soon</p>
+      <SectionLabel>Incentives & Tax Credits</SectionLabel>
+
+      {/* Homeowner: no solar ITC */}
+      <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3 mb-4">
+        <p className="text-xs font-semibold text-slate-700">If you buy outright or take a solar loan</p>
         <p className="text-xs text-slate-500 leading-relaxed">
-          We are integrating DSIRE to show verified federal, state, and local incentives for your address. Until then, verify directly at the sources below.
+          There is currently no federal tax credit for homeowners who purchase solar panels with cash or a loan. Check your state — some states offer rebates, tax credits, or property tax exemptions that do pass directly to you.
         </p>
-        <div className="mt-3 flex flex-wrap gap-4">
+        <p className="text-xs font-semibold text-slate-700 pt-1">Battery storage credit (Section 25D)</p>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          If you add battery storage, a federal residential energy storage credit may apply regardless of how you financed the solar. Verify current eligibility with a tax professional or the IRS directly.
+        </p>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <SourceLink href="https://www.irs.gov/credits-deductions/residential-clean-energy-credit" label="IRS — Residential Energy Credits" />
           <SourceLink href="https://www.dsireusa.org/" label="DSIRE — state & local incentives" />
-          <SourceLink href="https://www.irs.gov/credits-deductions/residential-clean-energy-credit" label="IRS.gov — federal credits" />
         </div>
       </div>
-      <div className="mt-6">
+
+      {/* TPO credits — what the installer gets */}
+      <div className="rounded-xl bg-amber-50 border border-amber-100 p-4 space-y-2 mb-4">
+        <p className="text-xs font-semibold text-amber-800">If you lease or take a PPA — what the installer captures</p>
+        <p className="text-xs text-amber-700 leading-relaxed">
+          The company that owns the panels claims these federal commercial tax incentives — not you. This is how they make the economics of a lease or PPA work:
+        </p>
+        <ul className="text-xs text-amber-700 space-y-1 pl-2">
+          <li>· <strong>30% Investment Tax Credit (ITC, Section 48E)</strong> — base federal credit on the full system cost</li>
+          <li>· <strong>+10% Domestic Content Bonus</strong> — if panels and structural components are US-manufactured</li>
+          <li>· <strong>+10% Energy Community Bonus</strong> — if your address is in a qualifying brownfield or fossil fuel community</li>
+        </ul>
+        <p className="text-xs text-amber-700 leading-relaxed pt-1">
+          These credits go to the installer, not you — but they're baked into the rates they offer you. Understanding this helps you negotiate.
+        </p>
+        <div className="pt-1">
+          <SourceLink href="https://www.irs.gov/credits-deductions/businesses/energy-incentives-for-businesses" label="IRS — Commercial Energy Credits (Section 48E)" />
+        </div>
+      </div>
+
+      {/* Net metering */}
+      <div>
         <p className="text-xs text-slate-500 mb-2">Net Metering</p>
         <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${nmColor}`}>{nmLabel}</span>
         <p className="text-xs text-slate-500 mt-3 leading-relaxed">{incentives.netMeteringDetail}</p>
@@ -661,7 +690,7 @@ function PaybackSection({
             {payback.lowYears}–{payback.highYears}
             <span className="text-xl font-medium text-slate-400 ml-1">years</span>
           </p>
-          <p className="text-xs text-slate-400 mt-1">System cost: {formatCurrency(payback.grossCost)} · No tax credit assumed</p>
+          <p className="text-xs text-slate-400 mt-1">System cost: {formatCurrency(payback.grossCost)} · No federal credit applied</p>
         </div>
         {googleFinancial && (
           <div className="sm:border-l sm:border-slate-100 sm:pl-6">
@@ -693,17 +722,6 @@ function PaybackSection({
           </div>
         )}
       </div>
-      {/* ITC callout — only relevant if customer owns the system */}
-      {payback.itcDollars && payback.withITCLowYears && payback.withITCHighYears && (
-        <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 mb-4 space-y-1">
-          <p className="text-xs font-semibold text-blue-800">Own it outright or finance with a solar loan?</p>
-          <p className="text-xs text-blue-700 leading-relaxed">
-            The 30% federal Residential Clean Energy Credit ({formatCurrency(payback.itcDollars)}) reduces your cost — bringing payback down to approximately <strong>{payback.withITCLowYears}–{payback.withITCHighYears} years</strong>.
-            This credit only applies when you own the system. With a lease or PPA, the installer claims it — not you.
-          </p>
-        </div>
-      )}
-
       <div className="space-y-2 text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-4">
         <p>The lower end assumes modest utility rate increases and high self-consumption. The upper end uses today's rate with no escalation.</p>
         {savings.isStateAverage && (
@@ -786,9 +804,9 @@ function FlagsSection({ cost, incentives }: { cost: Assessment['cost']; incentiv
       source: null,
     },
     {
-      title: 'Lease and PPA: the company owns the panels — and the tax credit',
-      body: 'A solar lease and a Power Purchase Agreement (PPA) both place third-party-owned panels on your roof. In a lease you pay a fixed monthly amount; in a PPA you pay per kWh produced. Either way, the company — not you — claims the 30% federal residential clean energy credit, because IRS Form 5695 requires the taxpayer to own the system. In almost every 25-year model, a cash purchase or solar loan produces better economics than a lease or PPA. Third-party options do serve a real need for homeowners who cannot afford upfront costs or do not qualify for financing — but go in knowing what you are giving up. Selling a home with a lease or PPA in place can also complicate the transaction.',
-      source: { href: 'https://www.irs.gov/credits-deductions/residential-clean-energy-credit', label: 'IRS Form 5695 — Residential Clean Energy Credit' },
+      title: 'Lease and PPA: the company owns the panels — and the federal tax credits',
+      body: 'With a lease or PPA, the installer — not you — claims the 30% federal Investment Tax Credit (Section 48E), plus any domestic content or energy community bonuses. Those credits are built into how they price the product. You get panels on your roof without upfront cost, but you give up ownership and long-term economics. In most 25-year models, cash purchase or a solar loan produces better outcomes. The real issue to watch: annual payment escalators, what happens when you sell the home, and what the company\'s bankruptcy clause says.',
+      source: { href: 'https://www.irs.gov/credits-deductions/businesses/energy-incentives-for-businesses', label: 'IRS — Section 48E Commercial Energy Credit' },
     },
     {
       title: 'Get multiple quotes and read every word of the contract',

@@ -156,13 +156,11 @@ export function AssessmentPDFDoc({ a }: { a: Assessment }) {
                 <Text style={[S.cardValue, { fontSize: 13 }]}>{payback.lowYears}–{payback.highYears} years</Text>
                 <Text style={S.cardSub}>System cost: {formatCurrency(payback.grossCost)}</Text>
               </View>
-              {payback.itcDollars && payback.withITCLowYears && payback.withITCHighYears && (
-                <View style={[S.highlight, { marginTop: 6 }]}>
-                  <Text style={S.highlightTxt}>
-                    Own it outright or take a solar loan? The 30% federal tax credit ({formatCurrency(payback.itcDollars)}) reduces payback to {payback.withITCLowYears}–{payback.withITCHighYears} years. Does not apply to leases or PPAs.
-                  </Text>
-                </View>
-              )}
+              <View style={[S.amber, { marginTop: 6 }]}>
+                <Text style={S.amberTxt}>
+                  No federal tax credit applies to homeowners purchasing solar under current law. Battery storage (Section 25D) may qualify — verify with a tax professional.
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -175,7 +173,7 @@ export function AssessmentPDFDoc({ a }: { a: Assessment }) {
           <View style={S.twoCol}>
             {[
               { t: 'Get 3+ quotes', b: 'Installer pricing varies significantly. Always get at least three written quotes before signing.' },
-              { t: 'Lease/PPA: read the fine print', b: 'You won\'t own the system. The installer claims the 30% federal tax credit, not you. Selling a home with a lease attached can complicate the transaction.' },
+              { t: 'Lease/PPA: the installer keeps the tax credits', b: 'The company claims the 30% federal ITC (Section 48E) plus any domestic content or energy community bonuses — not you. Read every escalator, termination fee, and home-sale clause before signing.' },
               { t: 'Verify net metering terms', b: 'Net metering policies change. Confirm your utility\'s current export rate before sizing the system.' },
               { t: 'Ask for a shade report', b: 'If trees or structures shade your roof, request a Solmetric SunEye analysis. 20 minutes of measurement can save years of underperformance.' },
             ].map(f => (

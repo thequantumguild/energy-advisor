@@ -94,14 +94,16 @@ export default function Home() {
             <SunIcon className="w-5 h-5 text-amber-400" />
             <span className="font-bold text-base tracking-tight">Energy Advocate</span>
           </button>
-          {phase === 'result' && (
-            <button
-              onClick={handleReset}
-              className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-            >
-              New assessment
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            <a href="/tools" className="text-sm text-slate-500 hover:text-blue-600 transition-colors font-medium">
+              Quote & Contract Tools
+            </a>
+            {phase === 'result' && (
+              <button onClick={handleReset} className="text-sm text-slate-500 hover:text-slate-700 transition-colors">
+                New assessment
+              </button>
+            )}
+          </div>
         </div>
       </header>
 

@@ -21,7 +21,6 @@ export const DEFAULT_UTILITY_RATE_PER_KWH = 0.137; // US average 2024
 export const COST_PER_WATT_LOW = 2.70;
 export const COST_PER_WATT_HIGH = 3.50;
 
-export const FEDERAL_ITC_PERCENT = 0.30; // 30% through 2032
 
 export type NetMeteringStatus = 'full' | 'limited' | 'none';
 

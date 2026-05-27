@@ -7,7 +7,7 @@ const STEPS = [
   { label: 'Analyzing your roof geometry', detail: 'Google Solar API' },
   { label: 'Calculating solar production', detail: 'NREL PVWatts V8' },
   { label: 'Pulling your utility rate', detail: 'EIA electricity data' },
-  { label: 'Checking local incentives', detail: 'DSIRE + federal ITC' },
+  { label: 'Checking local incentives', detail: 'DSIRE state incentive database' },
 ];
 
 // Each step appears after a staggered delay to communicate real work happening

@@ -115,8 +115,6 @@ export interface StateIncentive {
 }
 
 export interface IncentiveData {
-  federalITCPercent: number;
-  federalITCDollars: number;
   stateIncentives: StateIncentive[];
   netMeteringStatus: 'full' | 'limited' | 'none';
   netMeteringDetail: string;
@@ -128,9 +126,6 @@ export interface PaybackData {
   lowYears: number;
   highYears: number;
   grossCost: number;
-  itcDollars?: number;
-  withITCLowYears?: number;
-  withITCHighYears?: number;
 }
 
 export interface FluxMapData {
