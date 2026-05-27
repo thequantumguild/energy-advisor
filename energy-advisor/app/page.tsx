@@ -170,7 +170,13 @@ export default function Home() {
           <p>
             Data from Google Solar, NREL PVWatts, EIA, and DSIRE. For informational purposes only.
           </p>
-          <p>No data stored. No accounts. No sales calls.</p>
+          <div className="flex items-center gap-4">
+            <p>No data stored. No accounts. No sales calls.</p>
+            <span className="hidden sm:inline text-slate-200">|</span>
+            <a href="/terms" className="hover:text-amber-500 transition-colors whitespace-nowrap">Terms of Use</a>
+            <span className="text-slate-200">|</span>
+            <p className="whitespace-nowrap">© {new Date().getFullYear()} Energy Advocate™</p>
+          </div>
         </div>
       </footer>
     </div>
