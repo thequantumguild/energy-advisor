@@ -13,7 +13,6 @@ import {
   STATE_AVG_CONSUMPTION_KWH,
   DEFAULT_ANNUAL_CONSUMPTION_KWH,
   DEFAULT_UTILITY_RATE_PER_KWH,
-  FEDERAL_ITC_PERCENT,
   COST_PER_WATT_LOW,
   COST_PER_WATT_HIGH,
   NET_METERING,
@@ -279,9 +278,6 @@ export async function POST(request: NextRequest) {
     // ── Step 7: Cost + incentives + payback ──────────────────────────────────
     const costLow      = systemCapacityKw * 1000 * COST_PER_WATT_LOW;
     const costHigh     = systemCapacityKw * 1000 * COST_PER_WATT_HIGH;
-    const costMidpoint = (costLow + costHigh) / 2;
-    const federalITCDollars = costMidpoint * FEDERAL_ITC_PERCENT;
-
     const stateIncentives: StateIncentive[] = STATE_INCENTIVES[stateAbbr] ?? DEFAULT_STATE_INCENTIVES;
     const netMetering = NET_METERING[stateAbbr] ?? DEFAULT_NET_METERING;
     const storageIncentive = stateIncentives.find(i =>
@@ -290,15 +286,8 @@ export async function POST(request: NextRequest) {
       i.name.toLowerCase().includes('sgip')
     );
 
-    // Payback without ITC — the honest default (TPO/lease customers never see the credit)
     const paybackLowRaw  = costLow  / (annualSavings * 1.05);
     const paybackHighRaw = costHigh / annualSavings;
-    // ITC scenario — only applies when customer OWNS the system (cash or loan)
-    const itcDollars = Math.round(costMidpoint * FEDERAL_ITC_PERCENT);
-    const netCostLow  = costLow  * (1 - FEDERAL_ITC_PERCENT);
-    const netCostHigh = costHigh * (1 - FEDERAL_ITC_PERCENT);
-    const paybackWithITCLow  = netCostLow  / (annualSavings * 1.05);
-    const paybackWithITCHigh = netCostHigh / annualSavings;
 
     const shadingInfo = shadingFromSunshineHours(sunshineHoursPerYear);
 
@@ -379,8 +368,6 @@ export async function POST(request: NextRequest) {
         systemCapacityKw: Math.round(systemCapacityKw * 10) / 10,
       },
       incentives: {
-        federalITCPercent: FEDERAL_ITC_PERCENT * 100,
-        federalITCDollars: Math.round(federalITCDollars),
         stateIncentives,
         netMeteringStatus: netMetering.status,
         netMeteringDetail: netMetering.detail,
@@ -388,12 +375,9 @@ export async function POST(request: NextRequest) {
         storageDetail: storageIncentive?.description,
       },
       payback: {
-        lowYears:        Math.max(5, Math.round(paybackLowRaw)),
-        highYears:       Math.max(6, Math.round(paybackHighRaw)),
-        grossCost:       Math.round((costLow + costHigh) / 2),
-        itcDollars,
-        withITCLowYears:  Math.max(4, Math.round(paybackWithITCLow)),
-        withITCHighYears: Math.max(5, Math.round(paybackWithITCHigh)),
+        lowYears:  Math.max(5, Math.round(paybackLowRaw)),
+        highYears: Math.max(6, Math.round(paybackHighRaw)),
+        grossCost: Math.round((costLow + costHigh) / 2),
       },
       generatedAt: new Date().toISOString(),
       dataQuality,
