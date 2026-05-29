@@ -12,7 +12,7 @@ import PanelSlider from './PanelSlider';
 import RoofHistogram from './RoofHistogram';
 import FluxMap from './FluxMap';
 import SharpenForm from './SharpenForm';
-import AssessmentChat from './AssessmentChat';
+import FloatingChat from './FloatingChat';
 import DesignStudio from './DesignStudio';
 import PanelDesigner from './PanelDesigner';
 
@@ -124,8 +124,8 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
         </div>
       </div>
 
-      {/* AI Solar Advisor — prominent, top position */}
-      <AssessmentChat assessment={assessment} />
+      {/* Floating AI Solar Advisor — persistent across all sections */}
+      <FloatingChat assessment={assessment} />
 
       {/* Refine your numbers — below chat */}
       {onSharpen && (
