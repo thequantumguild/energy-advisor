@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RoofSegment, SolarPanelPlacement } from '@/lib/types';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 
-// Rotated rectangle corners — same math as PanelDesigner
 function panelCorners(
   lat: number, lng: number,
   halfLong: number, halfShort: number,
@@ -22,6 +21,18 @@ function panelCorners(
   }));
 }
 
+function cornersForPanel(
+  lat: number, lng: number,
+  orientation: 'PORTRAIT' | 'LANDSCAPE',
+  panelH: number, panelW: number,
+  azimuthDeg: number,
+) {
+  // Portrait: long axis up the slope. Landscape: short axis up the slope.
+  const halfLong  = orientation === 'PORTRAIT'  ? panelH / 2 : panelW / 2;
+  const halfShort = orientation === 'PORTRAIT'  ? panelW / 2 : panelH / 2;
+  return panelCorners(lat, lng, halfLong, halfShort, azimuthDeg);
+}
+
 interface Bounds { north: number; south: number; east: number; west: number; }
 
 interface PlacedPanel {
@@ -29,6 +40,7 @@ interface PlacedPanel {
   lat: number;
   lng: number;
   azimuthDeg: number;
+  orientation: 'PORTRAIT' | 'LANDSCAPE';
   yearlyEnergyDcKwh: number;
 }
 
@@ -60,16 +72,16 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
   return mapsLoadPromise;
 }
 
-function latLngToPixel(lat: number, lng: number, bounds: Bounds, w: number, h: number) {
-  const col = Math.round(((lng - bounds.west)  / (bounds.east  - bounds.west))  * w);
-  const row = Math.round(((bounds.north - lat) / (bounds.north - bounds.south)) * h);
+function latLngToPixel(lat: number, lng: number, b: Bounds, w: number, h: number) {
+  const col = Math.round(((lng - b.west)  / (b.east  - b.west))  * w);
+  const row = Math.round(((b.north - lat) / (b.north - b.south)) * h);
   return { col: Math.max(0, Math.min(w - 1, col)), row: Math.max(0, Math.min(h - 1, row)) };
 }
 
 function nearestSegment(lat: number, lng: number, segs: RoofSegment[]): RoofSegment | null {
   if (!segs.length) return null;
   return segs.reduce((best, seg) => {
-    const d = (seg.centerLat - lat) ** 2 + (seg.centerLng - lng) ** 2;
+    const d  = (seg.centerLat - lat) ** 2 + (seg.centerLng - lng) ** 2;
     const db = (best.centerLat - lat) ** 2 + (best.centerLng - lng) ** 2;
     return d < db ? seg : best;
   });
@@ -83,6 +95,7 @@ function suggestedToPlaced(sp: SolarPanelPlacement[], segs: RoofSegment[]): Plac
       lat: p.center.latitude,
       lng: p.center.longitude,
       azimuthDeg: seg?.azimuthDegrees ?? 180,
+      orientation: p.orientation,        // use Google's per-panel orientation
       yearlyEnergyDcKwh: p.yearlyEnergyDcKwh,
     };
   });
@@ -92,19 +105,24 @@ export default function RoofPlacer({
   centerLat, centerLng, roofSegments, suggestedPanels,
   panelCapacityWatts, panelHeightMeters, panelWidthMeters, utilityRatePerKwh,
 }: Props) {
-  const [open, setOpen]         = useState(false);
-  const [mapReady, setMapReady] = useState(false);
-  const [maskStatus, setMaskStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-  const [panels, setPanels]     = useState<PlacedPanel[]>([]);
+  const [open, setOpen]               = useState(false);
+  const [mapReady, setMapReady]       = useState(false);
+  const [maskStatus, setMaskStatus]   = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [panels, setPanels]           = useState<PlacedPanel[]>([]);
+  const [orientation, setOrientation] = useState<'PORTRAIT' | 'LANDSCAPE'>('PORTRAIT');
 
-  const mapDivRef   = useRef<HTMLDivElement>(null);
-  const mapRef      = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const polygonsRef = useRef<Map<number, any>>(new Map()); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const maskRef     = useRef<{ data: Uint8Array | Float32Array; w: number; h: number; bounds: Bounds } | null>(null);
-  const clickRef    = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const idRef       = useRef(0);
+  const mapDivRef      = useRef<HTMLDivElement>(null);
+  const mapRef         = useRef<any>(null);           // eslint-disable-line @typescript-eslint/no-explicit-any
+  const polygonsRef    = useRef<Map<number, any>>(new Map()); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const maskRef        = useRef<{ data: Uint8Array | Float32Array; w: number; h: number; bounds: Bounds } | null>(null);
+  const clickRef       = useRef<any>(null);           // eslint-disable-line @typescript-eslint/no-explicit-any
+  const orientationRef = useRef<'PORTRAIT' | 'LANDSCAPE'>('PORTRAIT');
+  const idRef          = useRef(0);
 
-  // Initialize map + mask when first opened
+  // Keep orientationRef in sync so the click handler always sees the latest value
+  useEffect(() => { orientationRef.current = orientation; }, [orientation]);
+
+  // Initialize map + mask on first open
   useEffect(() => {
     if (!open || mapRef.current) return;
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -117,14 +135,20 @@ export default function RoofPlacer({
 
       const map = new G.Map(mapDivRef.current, {
         center: { lat: centerLat, lng: centerLng },
-        zoom: 20, mapTypeId: 'satellite', tilt: 0,
-        zoomControl: true, mapTypeControl: false,
-        streetViewControl: false, fullscreenControl: false, rotateControl: false,
+        zoom: 21,
+        mapTypeId: 'satellite',
+        tilt: 0,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        rotateControl: false,
+        scaleControl: true,
       });
       mapRef.current = map;
       setMapReady(true);
 
-      // Load mask GeoTIFF
+      // Fetch and render mask
       try {
         const res = await fetch(`/api/fluxmap?lat=${centerLat}&lng=${centerLng}&type=mask`);
         if (!res.ok) { setMaskStatus('unavailable'); return; }
@@ -137,49 +161,59 @@ export default function RoofPlacer({
         };
 
         const { fromArrayBuffer } = await import('geotiff');
-        const tiff  = await fromArrayBuffer(buffer);
-        const image = await tiff.getImage();
-        const w     = image.getWidth();
-        const h     = image.getHeight();
+        const tiff    = await fromArrayBuffer(buffer);
+        const image   = await tiff.getImage();
+        const w       = image.getWidth();
+        const h       = image.getHeight();
         const rasters = await image.readRasters();
-        const data  = rasters[0] as Uint8Array;
+        const data    = rasters[0] as Uint8Array;
 
         maskRef.current = { data, w, h, bounds };
 
-        // Render mask as amber GroundOverlay
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d')!;
+        // Amber tint over valid roof pixels
+        const canvas  = document.createElement('canvas');
+        canvas.width  = w;
+        canvas.height = h;
+        const ctx     = canvas.getContext('2d')!;
         const imgData = ctx.createImageData(w, h);
         for (let i = 0; i < w * h; i++) {
           if (data[i] > 0) {
             imgData.data[i * 4 + 0] = 251;
             imgData.data[i * 4 + 1] = 191;
             imgData.data[i * 4 + 2] = 36;
-            imgData.data[i * 4 + 3] = 55; // ~22% opacity
+            imgData.data[i * 4 + 3] = 60;
           }
         }
         ctx.putImageData(imgData, 0, 0);
 
-        const overlayBounds = new G.LatLngBounds(
+        const gmBounds = new G.LatLngBounds(
           new G.LatLng(bounds.south, bounds.west),
           new G.LatLng(bounds.north, bounds.east),
         );
-        new G.GroundOverlay(canvas.toDataURL(), overlayBounds, { opacity: 1, clickable: false }).setMap(map);
+        new G.GroundOverlay(canvas.toDataURL(), gmBounds, { opacity: 1, clickable: false }).setMap(map);
+
+        // Fit map tightly to the roof
+        map.fitBounds(gmBounds);
+        G.event.addListenerOnce(map, 'bounds_changed', () => {
+          // Cap so we don't over-zoom on tiny roofs; satellite imagery maxes at 22
+          const z = map.getZoom();
+          if (z !== undefined && z > 21) map.setZoom(21);
+        });
+
         setMaskStatus('ready');
       } catch (err) {
         console.error('[RoofPlacer] mask:', err);
         setMaskStatus('unavailable');
       }
 
-      // Load Google's suggested panels as the starting layout
+      // Seed with Google's suggested layout
       setPanels(suggestedToPlaced(suggestedPanels, roofSegments));
       idRef.current = 0;
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Map click → place panel
+  // Map click → place panel with current orientation
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,20 +224,23 @@ export default function RoofPlacer({
       const clickLat = e.latLng.lat();
       const clickLng = e.latLng.lng();
 
-      // Validate against mask
+      // Reject if not on roof
       if (maskRef.current) {
         const { data, w, h, bounds } = maskRef.current;
         const { col, row } = latLngToPixel(clickLat, clickLng, bounds, w, h);
-        if (data[row * w + col] === 0) return; // not on roof
+        if (data[row * w + col] === 0) return;
       }
 
-      const seg = nearestSegment(clickLat, clickLng, roofSegments);
-      const azimuth = seg?.azimuthDegrees ?? 180;
-      const sunHours = seg?.sunshineHoursMedian ?? 1600;
+      const seg       = nearestSegment(clickLat, clickLng, roofSegments);
+      const azimuth   = seg?.azimuthDegrees ?? 180;
+      const sunHours  = seg?.sunshineHoursMedian ?? 1600;
       const yearlyDcKwh = (panelCapacityWatts / 1000) * sunHours * 0.75;
 
       const newId = idRef.current++;
-      setPanels(prev => [...prev, { id: newId, lat: clickLat, lng: clickLng, azimuthDeg: azimuth, yearlyEnergyDcKwh: yearlyDcKwh }]);
+      setPanels(prev => [
+        ...prev,
+        { id: newId, lat: clickLat, lng: clickLng, azimuthDeg: azimuth, orientation: orientationRef.current, yearlyEnergyDcKwh: yearlyDcKwh },
+      ]);
     });
 
     return () => {
@@ -215,24 +252,20 @@ export default function RoofPlacer({
     };
   }, [mapReady, roofSegments, panelCapacityWatts]);
 
-  // Sync panel polygons
+  // Sync polygons — remove stale, add new
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const G = (window as any).google.maps;
 
-    // Remove stale
     const liveIds = new Set(panels.map(p => p.id));
     for (const [id, poly] of polygonsRef.current) {
       if (!liveIds.has(id)) { poly.setMap(null); polygonsRef.current.delete(id); }
     }
 
-    // Add new
     for (const panel of panels) {
       if (polygonsRef.current.has(panel.id)) continue;
-      const halfLong = panelHeightMeters / 2;
-      const halfShort = panelWidthMeters / 2;
-      const corners = panelCorners(panel.lat, panel.lng, halfLong, halfShort, panel.azimuthDeg);
+      const corners = cornersForPanel(panel.lat, panel.lng, panel.orientation, panelHeightMeters, panelWidthMeters, panel.azimuthDeg);
       const poly = new G.Polygon({
         paths: corners,
         strokeColor: '#92400e', strokeOpacity: 1, strokeWeight: 2,
@@ -240,10 +273,7 @@ export default function RoofPlacer({
         map: mapRef.current, clickable: true, zIndex: 2,
       });
       const pid = panel.id;
-      poly.addListener('click', (e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        e.stop();
-        setPanels(prev => prev.filter(p => p.id !== pid));
-      });
+      poly.addListener('click', (e: any) => { e.stop(); setPanels(prev => prev.filter(p => p.id !== pid)); }); // eslint-disable-line @typescript-eslint/no-explicit-any
       polygonsRef.current.set(panel.id, poly);
     }
   }, [panels, mapReady, panelHeightMeters, panelWidthMeters]);
@@ -256,14 +286,14 @@ export default function RoofPlacer({
   const clearAll = useCallback(() => setPanels([]), []);
 
   // Live stats
-  const systemKw    = (panels.length * panelCapacityWatts) / 1000;
-  const annualKwh   = Math.round(panels.reduce((s, p) => s + p.yearlyEnergyDcKwh, 0) * 0.8);
+  const systemKw     = (panels.length * panelCapacityWatts) / 1000;
+  const annualKwh    = Math.round(panels.reduce((s, p) => s + p.yearlyEnergyDcKwh, 0) * 0.8);
   const annualSavings = annualKwh * utilityRatePerKwh;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
-      {/* Header */}
+      {/* Collapsible header */}
       <button
         onClick={() => setOpen(v => !v)}
         className="w-full px-6 py-5 flex items-center justify-between gap-4 text-left hover:bg-slate-50 transition-colors"
@@ -273,8 +303,8 @@ export default function RoofPlacer({
           <p className="text-base font-bold text-slate-900">Design Your System</p>
           <p className="text-sm text-slate-500 mt-0.5">
             {panels.length > 0
-              ? `${panels.length} panels · ${systemKw.toFixed(1)} kW · click roof to add, click panel to remove`
-              : 'Click your roof to place panels anywhere you want'}
+              ? `${panels.length} panels · ${systemKw.toFixed(1)} kW · click roof to add · click panel to remove`
+              : 'Click your roof to place panels exactly where you want them'}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
@@ -299,17 +329,69 @@ export default function RoofPlacer({
 
       {open && (
         <>
-          {/* Live stats bar */}
+          {/* Stats bar */}
           <div className="bg-slate-900 px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Stat label="Panels"         value={panels.length > 0 ? String(panels.length)           : '—'} sub={`${panelCapacityWatts}W each`} />
-            <Stat label="System size"    value={panels.length > 0 ? `${systemKw.toFixed(1)} kW`     : '—'} sub="DC nameplate" />
+            <Stat label="Panels"         value={panels.length > 0 ? String(panels.length)            : '—'} sub={`${panelCapacityWatts}W each`} />
+            <Stat label="System size"    value={panels.length > 0 ? `${systemKw.toFixed(1)} kW`      : '—'} sub="DC nameplate" />
             <Stat label="Annual output"  value={annualKwh > 0      ? `${formatNumber(annualKwh)} kWh` : '—'} sub="estimated AC" />
-            <Stat label="Annual savings" value={annualKwh > 0      ? formatCurrency(annualSavings)   : '—'} sub={`$${utilityRatePerKwh.toFixed(3)}/kWh`} accent />
+            <Stat label="Annual savings" value={annualKwh > 0      ? formatCurrency(annualSavings)    : '—'} sub={`$${utilityRatePerKwh.toFixed(3)}/kWh`} accent />
+          </div>
+
+          {/* Toolbar */}
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+            {/* Orientation toggle */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500 mr-1">New panels:</span>
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                <button
+                  onClick={() => setOrientation('PORTRAIT')}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                    orientation === 'PORTRAIT'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {/* Portrait icon: tall rectangle */}
+                  <span className="inline-block w-2.5 h-4 border-2 rounded-sm"
+                    style={{ borderColor: orientation === 'PORTRAIT' ? '#fbbf24' : '#94a3b8' }} />
+                  Portrait
+                </button>
+                <button
+                  onClick={() => setOrientation('LANDSCAPE')}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5 border-l border-slate-200 ${
+                    orientation === 'LANDSCAPE'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {/* Landscape icon: wide rectangle */}
+                  <span className="inline-block w-4 h-2.5 border-2 rounded-sm"
+                    style={{ borderColor: orientation === 'LANDSCAPE' ? '#fbbf24' : '#94a3b8' }} />
+                  Landscape
+                </button>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={resetToGoogle}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Google&apos;s layout
+              </button>
+              <button
+                onClick={clearAll}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
           </div>
 
           {/* Map */}
           <div className="relative">
-            <div ref={mapDivRef} style={{ width: '100%', height: 500 }} />
+            <div ref={mapDivRef} style={{ width: '100%', height: 520 }} />
 
             {!mapReady && (
               <div className="absolute inset-0 bg-slate-100 flex flex-col items-center justify-center gap-3">
@@ -319,34 +401,21 @@ export default function RoofPlacer({
             )}
 
             {mapReady && (
-              <>
-                <div className="absolute top-3 left-3 flex gap-2">
-                  <button onClick={resetToGoogle}
-                    className="bg-slate-900/85 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-slate-900 transition-colors">
-                    Google&apos;s layout
-                  </button>
-                  <button onClick={clearAll}
-                    className="bg-slate-900/85 backdrop-blur-sm text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-slate-900 transition-colors">
-                    Clear all
-                  </button>
+              <div className="absolute bottom-3 right-3 bg-slate-900/85 backdrop-blur-sm rounded-lg px-3 py-2 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-2 rounded-sm bg-amber-400 border border-amber-600" />
+                  <span className="text-xs text-slate-200">Panel — click to remove</span>
                 </div>
-
-                <div className="absolute bottom-3 right-3 bg-slate-900/85 backdrop-blur-sm rounded-lg px-3 py-2 space-y-1.5">
+                {maskStatus === 'ready' && (
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-2 rounded-sm bg-amber-400 border border-amber-600" />
-                    <span className="text-xs text-slate-200">Panel (click to remove)</span>
+                    <div className="w-3 h-2 rounded-sm" style={{ background: 'rgba(251,191,36,0.24)', border: '1px solid rgba(251,191,36,0.5)' }} />
+                    <span className="text-xs text-slate-200">Valid roof area</span>
                   </div>
-                  {maskStatus === 'ready' && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-2 rounded-sm" style={{ background: 'rgba(251,191,36,0.22)', border: '1px solid rgba(251,191,36,0.5)' }} />
-                      <span className="text-xs text-slate-200">Valid roof area</span>
-                    </div>
-                  )}
-                  <p className="text-xs text-slate-400 pt-0.5 border-t border-slate-700">
-                    {maskStatus === 'ready' ? 'Click highlighted area to place' : 'Click anywhere on the roof'}
-                  </p>
-                </div>
-              </>
+                )}
+                <p className="text-xs text-slate-400 pt-0.5 border-t border-slate-700">
+                  {maskStatus === 'ready' ? 'Click amber area to place' : 'Click the roof to place'}
+                </p>
+              </div>
             )}
           </div>
         </>
