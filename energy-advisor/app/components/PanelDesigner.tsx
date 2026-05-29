@@ -59,6 +59,7 @@ interface Props {
   utilityRatePerKwh: number;
   centerLat: number;
   centerLng: number;
+  defaultOpen?: boolean;
 }
 
 export default function PanelDesigner({
@@ -70,8 +71,9 @@ export default function PanelDesigner({
   utilityRatePerKwh,
   centerLat,
   centerLng,
+  defaultOpen = false,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [activeSet, setActiveSet] = useState<Set<number>>(() => new Set(panels.map((_, i) => i)));
   const [mapReady, setMapReady] = useState(false);
 

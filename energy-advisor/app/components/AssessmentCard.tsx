@@ -101,19 +101,48 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4 animate-fade-up">
 
-      {/* Verdict banner */}
+      {/* Floating AI — portaled, always visible */}
+      <FloatingChat assessment={assessment} />
+
+      {/* Warnings */}
+      {assessment.warnings?.map((w, i) => (
+        <div key={i} className="flex gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+          <WarningIcon />
+          {w}
+        </div>
+      ))}
+
+      {/* ── ZONE 1: The Verdict ─────────────────────────────────────────── */}
       <div className={`rounded-2xl border px-6 py-5 ${verdictStyle.bg} ${verdictStyle.border}`}>
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 mb-4">
           <span className={`mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${verdictStyle.dot}`} />
           <div>
             <p className={`text-base font-bold mb-1 ${verdictStyle.text}`}>{verdict.headline}</p>
             <p className={`text-sm leading-relaxed ${verdictStyle.detail}`}>{verdict.detail}</p>
           </div>
         </div>
+        {/* 3 key numbers */}
+        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
+          <div>
+            <p className="text-xs text-white/40 mb-0.5 uppercase tracking-wide">Annual savings</p>
+            <p className={`text-xl font-bold ${verdictStyle.text}`}>{formatCurrency(savings.annualSavings)}</p>
+            <p className="text-xs text-white/30">estimated / yr</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/40 mb-0.5 uppercase tracking-wide">Payback</p>
+            <p className={`text-xl font-bold ${verdictStyle.text}`}>{payback.lowYears}–{payback.highYears} yrs</p>
+            <p className="text-xs text-white/30">no tax credit assumed</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/40 mb-0.5 uppercase tracking-wide">System size</p>
+            <p className={`text-xl font-bold ${verdictStyle.text}`}>{production.systemCapacityKw} kW</p>
+            <p className="text-xs text-white/30">{roof.estimatedPanelCount} panels</p>
+          </div>
+        </div>
       </div>
 
-      {/* Address banner + actions */}
-      <div className="flex items-start justify-between gap-4 px-1">
+      {/* Address + actions */}
+      <div className="flex items-center justify-between gap-4 px-1">
         <div>
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Assessment for</p>
           <p className="text-sm font-semibold text-slate-700 mt-0.5">{assessment.address}</p>
@@ -124,67 +153,7 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
         </div>
       </div>
 
-      {/* Floating AI Solar Advisor — persistent across all sections */}
-      <FloatingChat assessment={assessment} />
-
-      {/* Refine your numbers — below chat */}
-      {onSharpen && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <button
-            onClick={() => setRefineOpen(v => !v)}
-            className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-              </svg>
-              <span className="text-sm font-semibold text-slate-800">Sharpen your estimate</span>
-              <span className="text-xs text-slate-400 hidden sm:inline">Answer a few questions for a more accurate picture</span>
-            </div>
-            <svg
-              className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${refineOpen ? 'rotate-180' : ''}`}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-            </svg>
-          </button>
-          {refineOpen && (
-            <div className="px-6 pb-6 border-t border-slate-100">
-              <div className="pt-5">
-                <SharpenForm onSubmit={onSharpen} isLoading={isRefining ?? false} />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Warnings */}
-      {assessment.warnings?.map((w, i) => (
-        <div key={i} className="flex gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-          <WarningIcon />
-          {w}
-        </div>
-      ))}
-
-      {/* Roof — full width */}
-      <RoofSection
-        roof={roof}
-        roofImageUrl={assessment.roofImageUrl}
-        onLocationRefine={onLocationRefine}
-        activeSegmentIndices={activeSegmentIndices}
-      />
-
-      {/* Design Studio — full width, below map */}
-      {hasDesignStudio && (
-        <DesignStudio
-          roof={roof}
-          production={production}
-          savings={savings}
-          onActiveSegments={setActiveSegmentIndices}
-        />
-      )}
-
-      {/* Panel Designer — individual panel placement, full force Google Solar */}
+      {/* ── ZONE 2: Design Your System ──────────────────────────────────── */}
       {production.solarPanels?.length && roof.roofSegments?.length && roof.panelHeightMeters && roof.panelWidthMeters && (
         <PanelDesigner
           panels={production.solarPanels}
@@ -195,35 +164,117 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
           utilityRatePerKwh={savings.utilityRatePerKwh}
           centerLat={roof.lat}
           centerLng={roof.lng}
+          defaultOpen
         />
       )}
 
-      {/* 2-column grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ProductionSection
+      {hasDesignStudio && (
+        <DesignStudio
+          roof={roof}
           production={production}
-          utilityRate={savings.utilityRatePerKwh}
-          onActiveSegments={hasDesignStudio ? undefined : setActiveSegmentIndices}
+          savings={savings}
+          onActiveSegments={setActiveSegmentIndices}
         />
-        <SavingsSection savings={savings} />
-        <CostSection cost={cost} adders={assessment.adders} />
-        {roof.carbonOffsetKgPerMwh && (
-          <ImpactSection
-            annualKwh={production.annualKwh}
-            carbonOffsetKgPerMwh={roof.carbonOffsetKgPerMwh}
-            panelLifetimeYears={roof.panelLifetimeYears}
-            systemCapacityKw={production.systemCapacityKw}
-          />
-        )}
-      </div>
+      )}
 
-      {/* Full-width sections */}
-      {assessment.locationRisk && <LocationRiskSection risk={assessment.locationRisk} />}
-      <IncentivesSection incentives={incentives} cost={cost} />
-      <PaybackSection payback={payback} savings={savings} googleFinancial={assessment.googleFinancial} />
-      <ProjectionSection projection={assessment.projection} />
-      <ReOptSection reopt={reopt} loading={reoptLoading} systemCapacityKw={production.systemCapacityKw} />
-      <FlagsSection cost={cost} incentives={incentives} />
+      {/* ── ZONE 3: Dig Deeper ───────────────────────────────────────────── */}
+      <div className="space-y-2">
+
+        {/* Accordion: Your Roof */}
+        <Accordion label="Your Roof" icon={
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12 12 2.25 21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+          </svg>
+        }>
+          <div className="space-y-4">
+            <RoofSection
+              roof={roof}
+              roofImageUrl={assessment.roofImageUrl}
+              onLocationRefine={onLocationRefine}
+              activeSegmentIndices={activeSegmentIndices}
+            />
+            {onSharpen && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setRefineOpen(v => !v)}
+                  className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+                    </svg>
+                    <span className="text-sm font-semibold text-slate-800">Sharpen your estimate</span>
+                    <span className="text-xs text-slate-400 hidden sm:inline">A few questions for a more accurate picture</span>
+                  </div>
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${refineOpen ? 'rotate-180' : ''}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+                  </svg>
+                </button>
+                {refineOpen && (
+                  <div className="px-6 pb-6 border-t border-slate-100 pt-5">
+                    <SharpenForm onSubmit={onSharpen} isLoading={isRefining ?? false} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Accordion>
+
+        {/* Accordion: Production & Savings */}
+        <Accordion label="Production & Savings" icon={
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+          </svg>
+        }>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ProductionSection
+                production={production}
+                utilityRate={savings.utilityRatePerKwh}
+                onActiveSegments={hasDesignStudio ? undefined : setActiveSegmentIndices}
+              />
+              <SavingsSection savings={savings} />
+            </div>
+            {roof.carbonOffsetKgPerMwh && (
+              <ImpactSection
+                annualKwh={production.annualKwh}
+                carbonOffsetKgPerMwh={roof.carbonOffsetKgPerMwh}
+                panelLifetimeYears={roof.panelLifetimeYears}
+                systemCapacityKw={production.systemCapacityKw}
+              />
+            )}
+            <ProjectionSection projection={assessment.projection} />
+          </div>
+        </Accordion>
+
+        {/* Accordion: Cost & Payback */}
+        <Accordion label="Cost & Payback" icon={
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+        }>
+          <div className="space-y-4">
+            <CostSection cost={cost} adders={assessment.adders} />
+            <PaybackSection payback={payback} savings={savings} googleFinancial={assessment.googleFinancial} />
+            <ReOptSection reopt={reopt} loading={reoptLoading} systemCapacityKw={production.systemCapacityKw} />
+            <IncentivesSection incentives={incentives} cost={cost} />
+          </div>
+        </Accordion>
+
+        {/* Accordion: Protect Yourself */}
+        <Accordion label="Protect Yourself" icon={
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+          </svg>
+        }>
+          <div className="space-y-4">
+            <FlagsSection cost={cost} incentives={incentives} />
+            {assessment.locationRisk && <LocationRiskSection risk={assessment.locationRisk} />}
+          </div>
+        </Accordion>
+
+      </div>
     </div>
   );
 }
@@ -284,6 +335,34 @@ function WarningIcon() {
     <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
     </svg>
+  );
+}
+
+// ── Accordion wrapper ────────────────────────────────────────────────────────
+
+function Accordion({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="text-slate-400">{icon}</span>
+          <span className="text-sm font-bold text-slate-800">{label}</span>
+        </div>
+        <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 border-t border-slate-100 pt-4">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
