@@ -15,6 +15,7 @@ import SharpenForm from './SharpenForm';
 import FloatingChat from './FloatingChat';
 import DesignStudio from './DesignStudio';
 import PanelDesigner from './PanelDesigner';
+import RoofPlacer from './RoofPlacer';
 
 // PDF renderer uses browser APIs — load client-side only
 const DownloadPDFButton = dynamic(() => import('./AssessmentPDF'), { ssr: false });
@@ -155,6 +156,19 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
 
       {/* ── ZONE 2: Design Your System ──────────────────────────────────── */}
       {production.solarPanels?.length && roof.roofSegments?.length && roof.panelHeightMeters && roof.panelWidthMeters && (
+        <RoofPlacer
+          centerLat={roof.lat}
+          centerLng={roof.lng}
+          roofSegments={roof.roofSegments}
+          suggestedPanels={production.solarPanels}
+          panelCapacityWatts={production.panelCapacityWatts ?? 400}
+          panelHeightMeters={roof.panelHeightMeters}
+          panelWidthMeters={roof.panelWidthMeters}
+          utilityRatePerKwh={savings.utilityRatePerKwh}
+        />
+      )}
+
+      {production.solarPanels?.length && roof.roofSegments?.length && roof.panelHeightMeters && roof.panelWidthMeters && (
         <PanelDesigner
           panels={production.solarPanels}
           roofSegments={roof.roofSegments}
@@ -164,7 +178,6 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
           utilityRatePerKwh={savings.utilityRatePerKwh}
           centerLat={roof.lat}
           centerLng={roof.lng}
-          defaultOpen
         />
       )}
 
