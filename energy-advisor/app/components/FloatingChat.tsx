@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { Assessment } from '@/lib/types';
 
 interface Message { role: 'user' | 'assistant'; content: string; }
@@ -21,8 +22,11 @@ export default function FloatingChat({ assessment }: { assessment: Assessment })
   const [loading, setLoading] = useState(false);
   const [unread, setUnread]   = useState(0);
 
+  const [mounted, setMounted] = useState(false);
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -63,7 +67,9 @@ export default function FloatingChat({ assessment }: { assessment: Assessment })
     }
   }, [messages, loading, assessment, open]);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
 
       {/* Chat panel */}
@@ -206,6 +212,7 @@ export default function FloatingChat({ assessment }: { assessment: Assessment })
           <span className="absolute inset-0 rounded-full border-2 border-amber-400 animate-ping opacity-30" />
         )}
       </button>
-    </div>
+    </div>,
+    document.body
   );
 }
