@@ -32,6 +32,7 @@ export default function DesignStudio({ roof, production, savings, onActiveSegmen
   const segments   = roof.roofSegments ?? [];
   const configs    = production.panelConfigs ?? [];
   const panelWatts = production.panelCapacityWatts ?? 400;
+  const [open, setOpen] = useState(false);
 
   // Sort segment indices by sunshine hours descending so the best faces show first
   const segOrder = useMemo(
@@ -84,30 +85,48 @@ export default function DesignStudio({ roof, production, savings, onActiveSegmen
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
-      {/* Header */}
-      <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between gap-4">
+      {/* Header — click to collapse */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full px-6 py-5 flex items-center justify-between gap-4 text-left hover:bg-slate-50 transition-colors"
+      >
         <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Design Your System</p>
-          <p className="text-sm text-slate-500">Toggle roof sections — stats update live</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Design Studio</p>
+          <p className="text-base font-bold text-slate-900">Configure By Roof Section</p>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {selected.size} of {segments.length} sections active · {panelCount > 0 ? `${panelCount} panels · ${systemKw.toFixed(1)} kW` : 'no config'}
+          </p>
         </div>
-        <button
-          onClick={() => setSelected(allOn ? new Set([bestSeg]) : new Set(segments.map((_, i) => i)))}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap flex-shrink-0"
+        <svg
+          className={`w-5 h-5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
         >
-          {allOn ? 'Best section only' : 'Select all'}
-        </button>
-      </div>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+        </svg>
+      </button>
 
-      {/* Live stats bar */}
-      <div className="bg-slate-900 px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <LiveStat label="Panels"        value={panelCount > 0 ? String(panelCount)            : '—'} sub={`${panelWatts}W each`} />
-        <LiveStat label="System size"   value={panelCount > 0 ? `${systemKw.toFixed(1)} kW`  : '—'} sub="DC nameplate" />
-        <LiveStat label="Annual output" value={annualKwh > 0  ? `${formatNumber(annualKwh)} kWh` : '—'} sub="estimated AC" />
-        <LiveStat label="Annual savings" value={annualKwh > 0 ? formatCurrency(annualSavings) : '—'} sub={`$${savings.utilityRatePerKwh.toFixed(3)}/kWh`} accent />
-      </div>
+      {open && (
+        <>
+          {/* Section controls */}
+          <div className="px-6 pb-2 flex justify-end border-t border-slate-100 pt-3">
+            <button
+              onClick={() => setSelected(allOn ? new Set([bestSeg]) : new Set(segments.map((_, i) => i)))}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              {allOn ? 'Best section only' : 'Select all'}
+            </button>
+          </div>
 
-      {/* Segment cards */}
-      <div className="p-6">
+          {/* Live stats bar */}
+          <div className="bg-slate-900 px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <LiveStat label="Panels"        value={panelCount > 0 ? String(panelCount)            : '—'} sub={`${panelWatts}W each`} />
+            <LiveStat label="System size"   value={panelCount > 0 ? `${systemKw.toFixed(1)} kW`  : '—'} sub="DC nameplate" />
+            <LiveStat label="Annual output" value={annualKwh > 0  ? `${formatNumber(annualKwh)} kWh` : '—'} sub="estimated AC" />
+            <LiveStat label="Annual savings" value={annualKwh > 0 ? formatCurrency(annualSavings) : '—'} sub={`$${savings.utilityRatePerKwh.toFixed(3)}/kWh`} accent />
+          </div>
+
+          {/* Segment cards */}
+          <div className="p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mb-5">
           {segOrder.map(i => {
             const seg  = segments[i];
@@ -192,7 +211,9 @@ export default function DesignStudio({ roof, production, savings, onActiveSegmen
             No panel configurations match the selected sections. Enable at least one additional section to see a design.
           </div>
         )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
