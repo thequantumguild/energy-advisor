@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
       warnings.push('Your roof may be over 15 years old. Most installers require a roof in good condition before installing panels — get a roofer\'s assessment first to avoid paying twice.');
     }
     if (batteryInterest === 'yes' || batteryInterest === 'maybe') {
-      warnings.push('You expressed interest in battery storage — see the NREL ReOpt optimization below for sizing and economics. The Section 25D residential storage credit may also apply.');
+      warnings.push('You expressed interest in battery storage — see the NREL ReOpt optimization below for sizing and economics. Ask your installer and a tax professional about any current residential battery storage credits.');
     }
     if (paymentPreference === 'lease_ppa') {
       warnings.push('You\'re open to a lease or PPA. The tools section has a contract scanner to review terms before you sign — escalators and home-sale clauses are the details that matter most.');
@@ -788,8 +788,10 @@ async function fetchNOAAHailRisk(lat: number, lng: number): Promise<number | nul
       `?datasetid=GHCND&datatypeid=WT09&units=standard` +
       `&bbox=${lat - 0.5},${lng - 0.5},${lat + 0.5},${lng + 0.5}` +
       `&startdate=2018-01-01&enddate=2022-12-31&limit=1`;
+    const noaaToken = process.env.NOAA_CDO_TOKEN ?? '';
+    if (!noaaToken) return null;
     const res = await fetch(url, {
-      headers: { token: 'uGYXqsVPbCTKOmMUKKnZbWFdyXtDCPtH' }, // NOAA CDO public token
+      headers: { token: noaaToken },
       next: { revalidate: 86400 * 90 },
     });
     if (!res.ok) return null;
@@ -800,11 +802,12 @@ async function fetchNOAAHailRisk(lat: number, lng: number): Promise<number | nul
 }
 
 async function fetchEPAAirQuality(lat: number, lng: number): Promise<number | null> {
+  if (!process.env.EPA_AIRNOW_API_KEY) return null;
   try {
     // EPA AirNow API — current AQI by lat/lng
     const url = `https://www.airnowapi.org/aq/observation/latLong/current/` +
       `?format=application/json&latitude=${lat}&longitude=${lng}&distance=25` +
-      `&API_KEY=${process.env.EPA_AIRNOW_API_KEY ?? 'BD318E5F-0F14-4B5C-B5E3-92CF4B4F5F8C'}`;
+      `&API_KEY=${process.env.EPA_AIRNOW_API_KEY ?? ''}`;
     const res = await fetch(url, { next: { revalidate: 3600 } });
     if (!res.ok) return null;
     const data = await res.json();

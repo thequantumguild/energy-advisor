@@ -13,6 +13,7 @@ import RoofHistogram from './RoofHistogram';
 import FluxMap from './FluxMap';
 import SharpenForm from './SharpenForm';
 import AssessmentChat from './AssessmentChat';
+import DesignStudio from './DesignStudio';
 
 // PDF renderer uses browser APIs — load client-side only
 const DownloadPDFButton = dynamic(() => import('./AssessmentPDF'), { ssr: false });
@@ -40,8 +41,8 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
   const { roof, production, savings, cost, incentives, payback } = assessment;
 
   const [refineOpen, setRefineOpen] = useState(false);
-  // Shared state: which segments are active based on panel slider position
   const [activeSegmentIndices, setActiveSegmentIndices] = useState<number[] | undefined>(undefined);
+  const hasDesignStudio = !!(roof.roofSegments?.length && production.panelConfigs?.length);
 
   // ReOpt — loads asynchronously after main assessment renders
   const [reopt, setReopt] = useState<ReOptData | null>(null);
@@ -172,12 +173,22 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
         activeSegmentIndices={activeSegmentIndices}
       />
 
+      {/* Design Studio — full width, below map */}
+      {hasDesignStudio && (
+        <DesignStudio
+          roof={roof}
+          production={production}
+          savings={savings}
+          onActiveSegments={setActiveSegmentIndices}
+        />
+      )}
+
       {/* 2-column grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ProductionSection
           production={production}
           utilityRate={savings.utilityRatePerKwh}
-          onActiveSegments={setActiveSegmentIndices}
+          onActiveSegments={hasDesignStudio ? undefined : setActiveSegmentIndices}
         />
         <SavingsSection savings={savings} />
         <CostSection cost={cost} adders={assessment.adders} />

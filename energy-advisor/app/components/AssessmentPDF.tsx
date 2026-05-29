@@ -150,7 +150,7 @@ export function AssessmentPDFDoc({ a }: { a: Assessment }) {
               </View>
               <View style={[S.amber, { marginTop: 6 }]}>
                 <Text style={S.amberTxt}>
-                  No federal tax credit applies to homeowners purchasing solar under current law. Battery storage (Section 25D) may qualify — verify with a tax professional.
+                  No federal tax credit applies to homeowners purchasing solar panels under current law. For battery storage credits, verify current eligibility with a tax professional.
                 </Text>
               </View>
             </View>

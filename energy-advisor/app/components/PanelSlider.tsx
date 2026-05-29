@@ -20,25 +20,23 @@ export default function PanelSlider({ panelConfigs, panelCapacityWatts, utilityR
   const midIdx = Math.floor(sorted.length / 2);
   const [idx, setIdx] = useState(midIdx);
 
-  if (sorted.length === 0) return null;
-
-  const cfg = sorted[idx];
-  const systemKw = (cfg.panelsCount * panelCapacityWatts) / 1000;
-  const annualAcKwh = Math.round(cfg.yearlyEnergyDcKwh * 0.8);
+  const cfg = sorted[idx] ?? sorted[0];
+  const systemKw = cfg ? (cfg.panelsCount * panelCapacityWatts) / 1000 : 0;
+  const annualAcKwh = cfg ? Math.round(cfg.yearlyEnergyDcKwh * 0.8) : 0;
   const annualSavings = annualAcKwh * utilityRate;
   const costLow = systemKw * 2700;
   const costHigh = systemKw * 3500;
 
-  // Notify parent which segments are active for this config
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    if (!onActiveSegments || !cfg.segmentSummaries) return;
+    if (!onActiveSegments || !cfg?.segmentSummaries) return;
     const indices = cfg.segmentSummaries
       .filter(s => s.panelsCount > 0)
       .map(s => s.segmentIndex);
     onActiveSegments(indices);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx]);
+
+  if (sorted.length === 0) return null;
 
   return (
     <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 space-y-3">
