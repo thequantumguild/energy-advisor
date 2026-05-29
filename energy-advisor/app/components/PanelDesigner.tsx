@@ -95,7 +95,7 @@ export default function PanelDesigner({
 
       const map = new G.Map(mapDivRef.current, {
         center: { lat: centerLat, lng: centerLng },
-        zoom: 21,
+        zoom: 20,
         mapTypeId: 'satellite',
         tilt: 0,
         zoomControl: true,
@@ -126,11 +126,11 @@ export default function PanelDesigner({
         const active = activeSetRef.current.has(i);
         const poly = new G.Polygon({
           paths: corners,
-          strokeColor:   active ? '#d97706' : '#64748b',
-          strokeOpacity: active ? 0.9 : 0.4,
-          strokeWeight: 1,
-          fillColor:   active ? '#f59e0b' : '#94a3b8',
-          fillOpacity: active ? 0.75 : 0.25,
+          strokeColor:   active ? '#92400e' : '#334155',
+          strokeOpacity: active ? 1.0 : 0.6,
+          strokeWeight: 2,
+          fillColor:   active ? '#fbbf24' : '#94a3b8',
+          fillOpacity: active ? 0.85 : 0.2,
           map,
           clickable: true,
           zIndex: active ? 2 : 1,
@@ -160,10 +160,11 @@ export default function PanelDesigner({
       if (!poly) return;
       const active = activeSet.has(i);
       poly.setOptions({
-        fillColor:   active ? '#f59e0b' : '#94a3b8',
-        fillOpacity: active ? 0.75 : 0.25,
-        strokeColor:   active ? '#d97706' : '#64748b',
-        strokeOpacity: active ? 0.9 : 0.4,
+        fillColor:   active ? '#fbbf24' : '#94a3b8',
+        fillOpacity: active ? 0.85 : 0.2,
+        strokeColor:   active ? '#92400e' : '#334155',
+        strokeOpacity: active ? 1.0 : 0.6,
+        strokeWeight: 2,
         zIndex: active ? 2 : 1,
       });
     });
