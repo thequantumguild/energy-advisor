@@ -14,6 +14,7 @@ import FluxMap from './FluxMap';
 import SharpenForm from './SharpenForm';
 import AssessmentChat from './AssessmentChat';
 import DesignStudio from './DesignStudio';
+import PanelDesigner from './PanelDesigner';
 
 // PDF renderer uses browser APIs — load client-side only
 const DownloadPDFButton = dynamic(() => import('./AssessmentPDF'), { ssr: false });
@@ -180,6 +181,20 @@ export default function AssessmentCard({ assessment, onLocationRefine, onSharpen
           production={production}
           savings={savings}
           onActiveSegments={setActiveSegmentIndices}
+        />
+      )}
+
+      {/* Panel Designer — individual panel placement, full force Google Solar */}
+      {production.solarPanels?.length && roof.roofSegments?.length && roof.panelHeightMeters && roof.panelWidthMeters && (
+        <PanelDesigner
+          panels={production.solarPanels}
+          roofSegments={roof.roofSegments}
+          panelCapacityWatts={production.panelCapacityWatts ?? 400}
+          panelHeightMeters={roof.panelHeightMeters}
+          panelWidthMeters={roof.panelWidthMeters}
+          utilityRatePerKwh={savings.utilityRatePerKwh}
+          centerLat={roof.lat}
+          centerLng={roof.lng}
         />
       )}
 

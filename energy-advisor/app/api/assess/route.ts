@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
     let sunshineHoursPerYear = 1600;
     let roofSegments: RoofSegment[] | undefined;
     let panelConfigs: PanelConfig[] | undefined;
+    let solarPanels: import('@/lib/types').SolarPanelPlacement[] | undefined;
     let imageryDate: string | undefined;
     let imageryQuality: 'HIGH' | 'MEDIUM' | 'LOW' | undefined;
     let carbonOffsetKgPerMwh: number | undefined;
@@ -146,6 +147,17 @@ export async function POST(request: NextRequest) {
           yearlyEnergyDcKwh: s.yearlyEnergyDcKwh ?? 0,
         })),
       }));
+
+      if (Array.isArray(solarPotential.solarPanels) && solarPotential.solarPanels.length > 0) {
+        solarPanels = solarPotential.solarPanels
+          .filter((p: any) => p.center?.latitude && p.center?.longitude) // eslint-disable-line @typescript-eslint/no-explicit-any
+          .map((p: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+            center: { latitude: p.center.latitude, longitude: p.center.longitude },
+            orientation: p.orientation === 'LANDSCAPE' ? 'LANDSCAPE' : 'PORTRAIT',
+            segmentIndex: p.segmentIndex ?? 0,
+            yearlyEnergyDcKwh: p.yearlyEnergyDcKwh ?? 0,
+          }));
+      }
 
       carbonOffsetKgPerMwh = solarPotential.carbonOffsetFactorKgPerMwh ?? undefined;
       panelLifetimeYears   = solarPotential.panelLifetimeYears ?? undefined;
@@ -398,6 +410,7 @@ export async function POST(request: NextRequest) {
         inverterType: inverterType ?? undefined,
         inverterEfficiencyPct,
         systemLossPct,
+        solarPanels,
       },
       savings: {
         offsetPercent,

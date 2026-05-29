@@ -61,6 +61,13 @@ export interface PanelConfig {
   segmentSummaries?: PanelSegmentSummary[];
 }
 
+export interface SolarPanelPlacement {
+  center: { latitude: number; longitude: number };
+  orientation: 'PORTRAIT' | 'LANDSCAPE';
+  segmentIndex: number;
+  yearlyEnergyDcKwh: number;
+}
+
 export interface WholeRoofStats {
   areaMeters2: number;
   groundAreaMeters2: number;
@@ -97,6 +104,7 @@ export interface ProductionData {
   inverterType?: 'string' | 'micro' | 'optimizer';
   inverterEfficiencyPct?: number;
   systemLossPct?: number;
+  solarPanels?: SolarPanelPlacement[];
 }
 
 export interface SavingsData {
